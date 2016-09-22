@@ -22,3 +22,105 @@ To compile nginx with this module, use an `--add-module` option to `configure`
 ```
 ./configure --add-module=path/to/this/module/directory
 ```
+
+# All commands
+Here's a list of all of the commands I used on a fresh CentOS VM to get this up and running
+
+```
+yum update
+yum -y groupinstall 'Development Tools'
+yum -y install unzip zip gunzip wget httpd-devel pcre perl pcre-devel zlib zlib-devel GeoIP GeoIP-devel openssl openssl-devel cmake git
+cd
+mkdir dl
+cd dl
+wget https://github.com/akheron/jansson/archive/2.8.zip
+unzip 2.8.zip
+ln -sf jansson-2.8 jansson
+cd jansson
+cmake .
+make
+make install
+cd ~/dl
+wget https://github.com/simpl/ngx_devel_kit/archive/master.zip
+unzip master.zip
+ln -sf libjwt-master libjwt
+cd libjwt
+```
+
+To compile libjwt on my mac I had to edit the `CMakeLists.txt` file and add this line at the top:
+
+```
+include_directories(/usr/local/Cellar/openssl/1.0.2h_1/include/)
+```
+
+To compile libjwt on my CentOS VM I had to edit the CMakeLists.txt file and add this flag to the list of CMAKE_C_FLAGS:
+
+```-std=gnu99```
+
+```
+vi CMakeLists.txt
+cmake .
+make jwt_static
+
+cd ~/dl
+git clone https://github.com/TeslaGov/ngx-http-auth-jwt-module
+
+cd ~/dl
+wget http://nginx.org/download/nginx-1.10.1.tar.gz
+tar -xzf nginx-1.10.1.tar.gz
+ln -sf nginx-1.10.1 nginx
+cd nginx
+```
+
+You may need to change this configure line to support your needs
+
+```
+./configure 
+	--user=nginx \
+	--group=nginx \
+	--prefix=/etc/nginx \
+	--sbin-path=/usr/sbin/nginx \
+	--conf-path=/etc/nginx/nginx.conf \
+	--pid-path=/var/run/nginx.pid \
+	--lock-path=/var/run/nginx.lock \
+	--error-log-path=/var/log/nginx/error.log \
+	--http-log-path=/var/log/nginx/access.log \ 
+	--with-http_gzip_static_module \
+	--with-http_stub_status_module \
+	--with-http_ssl_module \
+	--with-pcre \
+	--add-module=/root/dl/ngx-http-auth-jwt-module/src
+```
+
+At this point I needed to edit the Makefile.  I couldn't figure out how to link in the dependent libraries via the configure command so I added them in by hand.
+
+I appended this to my CLFAGS line:
+
+```
+-I /root/dl/libjwt/include -I /root/dl/jansson/src -std=gnu99
+```
+
+I added these lines to to objs/nginx list:
+
+```
+	objs/addon/ngx_http_auth_jwt_module/ngx_http_auth_jwt_module.o \
+    /root/dl/libjwt/lib/libjwt.a \
+    /usr/local/lib/libjansson.a
+```
+
+I added these lines to the xxx list:
+
+```
+	objs/addon/ngx_http_auth_jwt_module/ngx_http_auth_jwt_module.o \
+    -L /root/dl/libjwt/lib \
+    -L /usr/local/lib \
+    -ldl -lpthread -lcrypt -lpcre -lssl -lcrypto -ldl -lz -ljwt -ljansson \
+    -Wl,-E
+```
+
+```
+vi Makefile
+make
+make install
+/usr/local/nginx/sbin/nginx -c /usr/local/nginx/conf/nginx.conf
+```
