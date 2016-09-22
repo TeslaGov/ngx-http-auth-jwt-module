@@ -102,7 +102,7 @@ I appended this to my CLFAGS line:
 -I /root/dl/libjwt/include -I /root/dl/jansson/src -std=gnu99
 ```
 
-I added these lines to to objs/nginx list:
+I added these lines to objs/nginx list:
 
 ```
 	objs/addon/ngx_http_auth_jwt_module/ngx_http_auth_jwt_module.o \
@@ -110,7 +110,7 @@ I added these lines to to objs/nginx list:
     /usr/local/lib/libjansson.a
 ```
 
-I added these lines to the xxx list:
+I added these lines to the link command:
 
 ```
 	objs/addon/ngx_http_auth_jwt_module/ngx_http_auth_jwt_module.o \
