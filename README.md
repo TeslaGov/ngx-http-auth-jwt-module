@@ -4,6 +4,45 @@ This is an NGINX module to check for a valid JWT and proxy to an upstream server
 # Build Requirements
 This module depends on the [JWT C Library](https://github.com/benmcollins/libjwt)
 
+Unfortunately, this library cannot handle grants that are not strings.  In the JWT Spec, some grants, such as "exp" and "iat" are supposed to be stored as integers, not strings.  If the JWT is created by another library and an exp is set as an integer, this library will return NULL when you try to get that grant.  There is a pull request by another person to address this issue, but it has been on hold for months.  I have patched the library myself.
+
+I added these lines to jwt.h
+
+```
+const char *jwt_get_grant(jwt_t *jwt, const char *grant);
+int jwt_get_grant_int(jwt_t *jwt, const char *grant);
+```
+
+I added these lines to jwt.c
+
+```
+static int get_js_int(json_t *js, const char *key)
+{
+	int val = -1;
+	json_t *js_val;
+
+	js_val = json_object_get(js, key);
+	if (js_val)
+		val = (int)json_integer_value(js_val);
+
+	return val;
+	return 0;
+}
+
+int jwt_get_grant_int(jwt_t *jwt, const char *grant)
+{
+	if (!jwt || !grant || !strlen(grant)) {
+		errno = EINVAL;
+		return 0;
+	}
+
+	errno = 0;
+
+	return get_js_int(jwt->grants, grant);
+}
+```
+
+
 Transitively, that library depends on a JSON Parser called [Jansson](https://github.com/akheron/jansson) as well as OpenSSL
 
 # NGINX Directives
@@ -53,13 +92,17 @@ To compile libjwt on my mac I had to edit the `CMakeLists.txt` file and add this
 	include_directories(/usr/local/Cellar/openssl/1.0.2h_1/include/)
 ```
 
-To compile libjwt on my CentOS VM I had to edit the CMakeLists.txt file and add this flag to the list of CMAKE_C_FLAGS:
+To compile libjwt on my CentOS VM I had to edit the `CMakeLists.txt` file and add this flag to the list of `CMAKE_C_FLAGS`:
 
 ```
 	-std=gnu99
 ```
 
+Edit `include/jwt.h` and `libjwt/jwt.c` according to my comments above.
+
 ```
+vi include/jwt.h
+vi libjwt/jwt.c
 vi CMakeLists.txt
 cmake .
 make jwt_static
