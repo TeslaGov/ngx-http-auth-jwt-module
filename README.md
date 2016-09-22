@@ -55,9 +55,10 @@ include_directories(/usr/local/Cellar/openssl/1.0.2h_1/include/)
 
 To compile libjwt on my CentOS VM I had to edit the CMakeLists.txt file and add this flag to the list of CMAKE_C_FLAGS:
 
-```-std=gnu99```
-
 ```
+-std=gnu99
+```
+
 vi CMakeLists.txt
 cmake .
 make jwt_static
