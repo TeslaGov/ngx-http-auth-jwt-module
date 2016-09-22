@@ -50,13 +50,13 @@ cd libjwt
 To compile libjwt on my mac I had to edit the `CMakeLists.txt` file and add this line at the top:
 
 ```
-include_directories(/usr/local/Cellar/openssl/1.0.2h_1/include/)
+	include_directories(/usr/local/Cellar/openssl/1.0.2h_1/include/)
 ```
 
 To compile libjwt on my CentOS VM I had to edit the CMakeLists.txt file and add this flag to the list of CMAKE_C_FLAGS:
 
 ```
--std=gnu99
+	-std=gnu99
 ```
 
 ```
@@ -99,7 +99,7 @@ At this point I needed to edit the Makefile.  I couldn't figure out how to link 
 I appended this to my CLFAGS line:
 
 ```
--I /root/dl/libjwt/include -I /root/dl/jansson/src -std=gnu99
+	-I /root/dl/libjwt/include -I /root/dl/jansson/src -std=gnu99
 ```
 
 I added these lines to objs/nginx list:
