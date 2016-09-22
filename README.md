@@ -59,6 +59,7 @@ To compile libjwt on my CentOS VM I had to edit the CMakeLists.txt file and add 
 -std=gnu99
 ```
 
+```
 vi CMakeLists.txt
 cmake .
 make jwt_static
