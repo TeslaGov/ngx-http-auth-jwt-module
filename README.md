@@ -4,8 +4,6 @@ This is an NGINX module to check for a valid JWT and proxy to an upstream server
 # Build Requirements
 This module depends on the [JWT C Library](https://github.com/benmcollins/libjwt)
 
-Unfortunately, this library cannot handle grants that are not strings.  In the JWT Spec, some grants, such as "exp" and "iat" are supposed to be stored as integers, not strings.  If the JWT is created by another library and an exp is set as an integer, this library will return NULL when you try to get that grant.  I forked the library and submitted a pull request.  For now, you should use [TeslaGov fork of the JWT C Library](https://github.com/TeslaGov/libjwt)
-
 Transitively, that library depends on a JSON Parser called [Jansson](https://github.com/akheron/jansson) as well as the OpenSSL library.
 
 # NGINX Directives
