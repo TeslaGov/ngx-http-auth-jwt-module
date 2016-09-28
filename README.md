@@ -41,7 +41,7 @@ cmake .
 make
 make install
 cd ~/dl
-wget https://github.com/simpl/ngx_devel_kit/archive/master.zip
+wget https://github.com/benmcollins/libjwt/archive/master.zip
 unzip master.zip
 ln -sf libjwt-master libjwt
 cd libjwt
