@@ -39,7 +39,7 @@ static ngx_command_t  ngx_http_auth_jwt_commands[] = {
       offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_key),
       NULL },
 	  
-	{ ngx_string("auth_jwt_enabled"),
+    { ngx_string("auth_jwt_enabled"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
@@ -85,6 +85,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 {
 	ngx_int_t n;
 	ngx_str_t jwtCookieName = ngx_string("rampartjwt");
+	ngx_str_t passportKeyCookieName = ngx_string("PassportKey");
 	ngx_str_t jwtCookieVal;
 	char* jwtCookieValChrPtr;
 	ngx_http_auth_jwt_loc_conf_t  *jwtcf;
@@ -94,16 +95,14 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	jwt_alg_t alg;
 	time_t exp;
 	time_t now;
-	ngx_str_t passportKeyCookieName = ngx_string("PassportKey");
-	ngx_str_t passportKeyCookieVal;
 	
 	
-    jwtcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
+	jwtcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
 	
 	if (!jwtcf->auth_jwt_enabled) 
 	{
-        return NGX_DECLINED;
-    }
+		return NGX_DECLINED;
+	}
 	
 //	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Key: %s, Enabled: %d", 
 //			jwtcf->auth_jwt_key.data, 
@@ -114,9 +113,14 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &jwtCookieName, &jwtCookieVal);
 	if (n == NGX_DECLINED) 
 	{
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to obtain rampartjwt cookie");
-		goto redirect;
-    }
+		// if we can't find the first cookie, check the legacy location
+		n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &passportKeyCookieName, &jwtCookieVal);
+		if (n == NGX_DECLINED)
+		{
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to obtain a jwt cookie");
+			goto redirect;
+		}
+	}
 	
 	// the cookie data is not necessarily null terminated... we need a null terminated character pointer
 	jwtCookieValChrPtr = ngx_alloc(jwtCookieVal.len + 1, r->connection->log);
@@ -160,22 +164,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		goto redirect;
 	}
 	
-	// ensure that the user has a matching PassportKey cookie.
-	// this can be removed once we and our partners no longer use the PassportKey cookie	
-	n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &passportKeyCookieName, &passportKeyCookieVal);
-	if (n == NGX_DECLINED) {
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to obtain passport cookie");
-		goto redirect;
-    };
-	
-	// compare both cookies
-	if (ngx_strncmp(jwtCookieVal.data, passportKeyCookieVal.data, jwtCookieVal.len))
-	{
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "PassportKey cookie does not match rampartjwt cookie");
-		goto redirect;
-	}
-	
-    return NGX_OK;
+	return NGX_OK;
 	
 	redirect:
 		r->headers_out.location = ngx_list_push(&r->headers_out.headers);
