@@ -58,8 +58,7 @@ To compile libjwt on my CentOS VM I had to edit the `CMakeLists.txt` file and ad
 ```
 	-std=gnu99
 ```
-
-Edit `include/jwt.h` and `libjwt/jwt.c` according to my comments above.
+more commands...
 
 ```
 vi include/jwt.h
