@@ -88,6 +88,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	ngx_str_t passportKeyCookieName = ngx_string("PassportKey");
 	ngx_str_t jwtCookieVal;
 	char* jwtCookieValChrPtr;
+	char* return_url;
 	ngx_http_auth_jwt_loc_conf_t  *jwtcf;
 	u_char *keyBinary;
 	jwt_t *jwt;
@@ -174,9 +175,40 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		r->headers_out.location->hash = 1;
 		r->headers_out.location->key.len = sizeof("Location") - 1;
 		r->headers_out.location->key.data = (u_char *) "Location";
-		r->headers_out.location->value.len = jwtcf->auth_jwt_loginurl.len;
-		r->headers_out.location->value.data = jwtcf->auth_jwt_loginurl.data;
-        return NGX_HTTP_MOVED_PERMANENTLY;
+
+		if (r->method == NGX_HTTP_GET)
+		{
+			int loginlen = jwtcf->auth_jwt_loginurl.len;
+
+			char *scheme = (r->connection->ssl) ? "https" : "http";
+			ngx_str_t server = r->headers_in.server;
+			ngx_str_t uri = r->uri;
+
+			r->headers_out.location->value.len = loginlen + sizeof("?return_url=") - 1 + strlen(scheme) + sizeof("://") - 1 + server.len + uri.len;
+			return_url = ngx_alloc(r->headers_out.location->value.len, r->connection->log);
+			ngx_memcpy(return_url, jwtcf->auth_jwt_loginurl.data, jwtcf->auth_jwt_loginurl.len);
+			int return_url_idx = jwtcf->auth_jwt_loginurl.len;
+			ngx_memcpy(return_url+return_url_idx, "?return_url=", sizeof("?return_url=") - 1);
+			return_url_idx += sizeof("?return_url=") - 1;
+			ngx_memcpy(return_url+return_url_idx, scheme, strlen(scheme));
+			return_url_idx += strlen(scheme);
+			ngx_memcpy(return_url+return_url_idx, "://", sizeof("://") - 1);
+			return_url_idx += sizeof("://") - 1;
+			ngx_memcpy(return_url+return_url_idx, server.data, server.len);
+			return_url_idx += server.len;
+			ngx_memcpy(return_url+return_url_idx, uri.data, uri.len);
+			return_url_idx += uri.len;
+			r->headers_out.location->value.data = (u_char *)return_url;
+
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "redirect for get request");
+		}
+		else
+		{
+			r->headers_out.location->value.len = jwtcf->auth_jwt_loginurl.len;
+			r->headers_out.location->value.data = jwtcf->auth_jwt_loginurl.data;
+		}
+
+		return NGX_HTTP_MOVED_TEMPORARILY;
 }
 
 
@@ -276,3 +308,4 @@ hex_to_binary( const char* str, u_char* buf, int len ) {
 	}
 	return 0;                              
 }
+
