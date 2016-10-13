@@ -11,8 +11,8 @@
 #include <jansson.h>
 
 typedef struct {
-    ngx_str_t   auth_jwt_loginurl;
-    ngx_str_t   auth_jwt_key;
+	ngx_str_t   auth_jwt_loginurl;
+	ngx_str_t   auth_jwt_key;
 	ngx_flag_t  auth_jwt_enabled;
 } ngx_http_auth_jwt_loc_conf_t;
 
@@ -25,59 +25,59 @@ static int hex_to_binary( const char* str, u_char* buf, int len );
 
 static ngx_command_t  ngx_http_auth_jwt_commands[] = {
 
-    { ngx_string("auth_jwt_loginurl"),
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_str_slot,
-      NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_loginurl),
-      NULL },
+	{ ngx_string("auth_jwt_loginurl"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_loginurl),
+		NULL },
 
-    { ngx_string("auth_jwt_key"),
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_str_slot,
-      NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_key),
-      NULL },
+	{ ngx_string("auth_jwt_key"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_key),
+		NULL },
 	  
-    { ngx_string("auth_jwt_enabled"),
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
-      ngx_conf_set_flag_slot,
-      NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_enabled),
-      NULL },
+	{ ngx_string("auth_jwt_enabled"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+		ngx_conf_set_flag_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_enabled),
+		NULL },
 
-      ngx_null_command
+    ngx_null_command
 };
 
 
 static ngx_http_module_t  ngx_http_auth_jwt_module_ctx = {
-    NULL,                        /* preconfiguration */
-    ngx_http_auth_jwt_init,      /* postconfiguration */
+	NULL,                        /* preconfiguration */
+	ngx_http_auth_jwt_init,      /* postconfiguration */
 
-    NULL,                        /* create main configuration */
-    NULL,                        /* init main configuration */
+	NULL,                        /* create main configuration */
+	NULL,                        /* init main configuration */
 
-    NULL,                        /* create server configuration */
-    NULL,                        /* merge server configuration */
+	NULL,                        /* create server configuration */
+	NULL,                        /* merge server configuration */
 
-    ngx_http_auth_jwt_create_loc_conf,      /* create location configuration */
-    ngx_http_auth_jwt_merge_loc_conf       /* merge location configuration */
+	ngx_http_auth_jwt_create_loc_conf,      /* create location configuration */
+	ngx_http_auth_jwt_merge_loc_conf       /* merge location configuration */
 };
 
 
 ngx_module_t  ngx_http_auth_jwt_module = {
-    NGX_MODULE_V1,
-    &ngx_http_auth_jwt_module_ctx,     /* module context */
-    ngx_http_auth_jwt_commands,        /* module directives */
-    NGX_HTTP_MODULE,                       /* module type */
-    NULL,                                  /* init master */
-    NULL,                                  /* init module */
-    NULL,                                  /* init process */
-    NULL,                                  /* init thread */
-    NULL,                                  /* exit thread */
-    NULL,                                  /* exit process */
-    NULL,                                  /* exit master */
-    NGX_MODULE_V1_PADDING
+	NGX_MODULE_V1,
+	&ngx_http_auth_jwt_module_ctx,     /* module context */
+	ngx_http_auth_jwt_commands,        /* module directives */
+	NGX_HTTP_MODULE,                   /* module type */
+	NULL,                              /* init master */
+	NULL,                              /* init module */
+	NULL,                              /* init process */
+	NULL,                              /* init thread */
+	NULL,                              /* exit thread */
+	NULL,                              /* exit process */
+	NULL,                              /* exit master */
+	NGX_MODULE_V1_PADDING
 };
 
 
@@ -96,7 +96,6 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	jwt_alg_t alg;
 	time_t exp;
 	time_t now;
-	
 	
 	jwtcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
 	
@@ -169,20 +168,48 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	
 	redirect:
 		r->headers_out.location = ngx_list_push(&r->headers_out.headers);
-		if (r->headers_out.location == NULL) {
+		
+		if (r->headers_out.location == NULL) 
+		{
 			ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
 		}
+
 		r->headers_out.location->hash = 1;
 		r->headers_out.location->key.len = sizeof("Location") - 1;
 		r->headers_out.location->key.data = (u_char *) "Location";
 
 		if (r->method == NGX_HTTP_GET)
 		{
-			int loginlen = jwtcf->auth_jwt_loginurl.len;
+			int loginlen;
+			char * scheme;
+			ngx_str_t server;
+			ngx_str_t uri_variable_name = ngx_string("request_uri");;
+			ngx_int_t uri_variable_hash;
+			ngx_http_variable_value_t * request_uri_var;
+			ngx_str_t uri;
 
-			char *scheme = (r->connection->ssl) ? "https" : "http";
-			ngx_str_t server = r->headers_in.server;
-			ngx_str_t uri = r->uri;
+			loginlen = jwtcf->auth_jwt_loginurl.len;
+
+			scheme = (r->connection->ssl) ? "https" : "http";
+			server = r->headers_in.server;
+
+			// get the URI
+			uri_variable_hash = ngx_hash_key(uri_variable_name.data, uri_variable_name.len);
+			request_uri_var = ngx_http_get_variable(r, &uri_variable_name, uri_variable_hash);
+
+			// get the uri
+			if(request_uri_var && !request_uri_var->not_found && request_uri_var->valid)
+			{
+				// ideally we would like the uri with the querystring parameters
+			        uri.data = ngx_palloc(r->pool, request_uri_var->len);
+			        uri.len = request_uri_var->len;
+				ngx_memcpy(uri.data, request_uri_var->data, request_uri_var->len);
+			}
+			else
+			{
+				// fallback to the querystring without params
+				uri = r->uri;
+			}
 
 			r->headers_out.location->value.len = loginlen + sizeof("?return_url=") - 1 + strlen(scheme) + sizeof("://") - 1 + server.len + uri.len;
 			return_url = ngx_alloc(r->headers_out.location->value.len, r->connection->log);
@@ -204,6 +231,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		}
 		else
 		{
+			// for non-get requests, redirect to the login page without a return URL
 			r->headers_out.location->value.len = jwtcf->auth_jwt_loginurl.len;
 			r->headers_out.location->value.data = jwtcf->auth_jwt_loginurl.data;
 		}
@@ -215,53 +243,56 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf)
 {
 	ngx_http_handler_pt        *h;
-    ngx_http_core_main_conf_t  *cmcf;
+	ngx_http_core_main_conf_t  *cmcf;
 
-    cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
+	cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 
-    h = ngx_array_push(&cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers);
-    if (h == NULL) {
-        return NGX_ERROR;
-    }
+	h = ngx_array_push(&cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers);
+	if (h == NULL) 
+	{
+		return NGX_ERROR;
+	}
 
-    *h = ngx_http_auth_jwt_handler;
+	*h = ngx_http_auth_jwt_handler;
 
-    return NGX_OK;
+	return NGX_OK;
 }
 
 
 static void *
 ngx_http_auth_jwt_create_loc_conf(ngx_conf_t *cf)
 {
-    ngx_http_auth_jwt_loc_conf_t  *conf;
+	ngx_http_auth_jwt_loc_conf_t  *conf;
 
-    conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_auth_jwt_loc_conf_t));
-    if (conf == NULL) {
-        return NULL;
-    }
+	conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_auth_jwt_loc_conf_t));
+	if (conf == NULL) 
+	{
+		return NULL;
+	}
 	
 	// set the flag to unset
 	conf->auth_jwt_enabled = (ngx_flag_t) -1;
 
 	ngx_conf_log_error(NGX_LOG_DEBUG, cf, 0, "Created Location Configuration");
 	
-    return conf;
+	return conf;
 }
 
 
 static char *
 ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 {
-    ngx_http_auth_jwt_loc_conf_t  *prev = parent;
-    ngx_http_auth_jwt_loc_conf_t  *conf = child;
+	ngx_http_auth_jwt_loc_conf_t  *prev = parent;
+	ngx_http_auth_jwt_loc_conf_t  *conf = child;
 
 	ngx_conf_merge_str_value(conf->auth_jwt_loginurl, prev->auth_jwt_loginurl, "");
 	ngx_conf_merge_str_value(conf->auth_jwt_key, prev->auth_jwt_key, "");
 	
 	
-	if (conf->auth_jwt_enabled == ((ngx_flag_t) -1)) {
-        conf->auth_jwt_enabled = (prev->auth_jwt_enabled == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_enabled;
-    }
+	if (conf->auth_jwt_enabled == ((ngx_flag_t) -1)) 
+	{
+	        conf->auth_jwt_enabled = (prev->auth_jwt_enabled == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_enabled;
+	}
 	
 	ngx_conf_log_error(NGX_LOG_DEBUG, cf, 0, "Merged Location Configuration");
 
@@ -274,16 +305,16 @@ ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 static int
 hex_char_to_binary( char ch, char* ret )
 {
-      ch = tolower( ch );      
-      if( isdigit( ch ) )
-            *ret = ch - '0';             
-      else if( ch >= 'a' && ch <= 'f' )
-            *ret = ( ch - 'a' ) + 10;
-	  else if( ch >= 'A' && ch <= 'F' )
-            *ret = ( ch - 'A' ) + 10;  
-      else
-            return *ret = 0;
-      return 1;       
+	ch = tolower( ch );      
+	if( isdigit( ch ) )
+		*ret = ch - '0';             
+	else if( ch >= 'a' && ch <= 'f' )
+		*ret = ( ch - 'a' ) + 10;
+	else if( ch >= 'A' && ch <= 'F' )
+		*ret = ( ch - 'A' ) + 10;  
+	else
+		return *ret = 0;
+	return 1;       
 }
 
 static int
