@@ -23,66 +23,24 @@ To compile nginx with this module, use an `--add-module` option to `configure`
 ./configure --add-module=path/to/this/module/directory
 ```
 
-# All commands
-Here's a list of all of the commands I used on a fresh CentOS VM to get this up and running
+# Full ubuntu install example
 
 ```
-yum update
-yum -y groupinstall 'Development Tools'
-yum -y install unzip zip gunzip wget httpd-devel pcre perl pcre-devel zlib zlib-devel GeoIP GeoIP-devel openssl openssl-devel cmake git
-cd
-mkdir dl
-cd dl
-wget https://github.com/akheron/jansson/archive/2.8.zip
-unzip 2.8.zip
-ln -sf jansson-2.8 jansson
-cd jansson
-cmake .
-make
-make install
-cd ~/dl
-wget https://github.com/benmcollins/libjwt/archive/master.zip
-unzip master.zip
-ln -sf libjwt-master libjwt
+apt-get -y install curl wget git-core build-essential libjansson-dev libssl-dev libsslcommon2-dev libpcre3-dev software-properties-common openssl libjansson-dev autoconf libgeoip-dev
+
+git clone https://github.com/benmcollins/libjwt
 cd libjwt
-```
+autoreconf -i
+./configure --prefix=/usr --mandir=\${prefix}/share/man --infodir=\${prefix}/share/info
+make all
+make install
 
-To compile libjwt on my mac I had to edit the `CMakeLists.txt` file and add this line at the top:
-
-```
-	include_directories(/usr/local/Cellar/openssl/1.0.2h_1/include/)
-```
-
-To compile libjwt on my CentOS VM I had to edit the `CMakeLists.txt` file and add this flag to the list of `CMAKE_C_FLAGS`:
-
-```
-	-std=gnu99
-```
-more commands...
-
-```
-vi include/jwt.h
-vi libjwt/jwt.c
-vi CMakeLists.txt
-cmake .
-make jwt_static
-
-cd ~/dl
-git clone https://github.com/TeslaGov/ngx-http-auth-jwt-module
-
-cd ~/dl
-wget http://nginx.org/download/nginx-1.10.1.tar.gz
-tar -xzf nginx-1.10.1.tar.gz
-ln -sf nginx-1.10.1 nginx
-cd nginx
-```
-
-You may need to change this configure line to support your needs
-
-```
-./configure 
-	--user=nginx \
-	--group=nginx \
+curl -s http://nginx.org/download/nginx-1.11.10.tar.gz | tar -zxf -
+git clone https://github.com/freman/ngx-http-auth-jwt-module
+cd nginx-1.11.10
+./configure \
+	--user=www-data \
+	--group=www-data \
 	--prefix=/etc/nginx \
 	--sbin-path=/usr/sbin/nginx \
 	--conf-path=/etc/nginx/nginx.conf \
@@ -90,42 +48,11 @@ You may need to change this configure line to support your needs
 	--lock-path=/var/run/nginx.lock \
 	--error-log-path=/var/log/nginx/error.log \
 	--http-log-path=/var/log/nginx/access.log \ 
+	--with-http_addition_module \
+	--with-http_geoip_module \
 	--with-http_gzip_static_module \
 	--with-http_stub_status_module \
 	--with-http_ssl_module \
 	--with-pcre \
-	--add-module=/root/dl/ngx-http-auth-jwt-module/src
-```
-
-At this point I needed to edit the Makefile.  I couldn't figure out how to link in the dependent libraries via the configure command so I added them in by hand.
-
-I appended this to my CLFAGS line:
-
-```
-	-I /root/dl/libjwt/include -I /root/dl/jansson/src -std=gnu99
-```
-
-I added these lines to objs/nginx list:
-
-```
-	objs/addon/ngx_http_auth_jwt_module/ngx_http_auth_jwt_module.o \
-    /root/dl/libjwt/lib/libjwt.a \
-    /usr/local/lib/libjansson.a
-```
-
-I added these lines to the link command:
-
-```
-	objs/addon/ngx_http_auth_jwt_module/ngx_http_auth_jwt_module.o \
-    -L /root/dl/libjwt/lib \
-    -L /usr/local/lib \
-    -ldl -lpthread -lcrypt -lpcre -lssl -lcrypto -ldl -lz -ljwt -ljansson \
-    -Wl,-E
-```
-
-```
-vi Makefile
-make
-make install
-/usr/local/nginx/sbin/nginx -c /usr/local/nginx/conf/nginx.conf
+	--add-module=../ngx-http-auth-jwt-module
 ```
