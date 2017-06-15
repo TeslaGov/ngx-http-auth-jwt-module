@@ -1,6 +1,12 @@
 /*
  * Tesla Government
  * @author joefitz
+ *
+ * To compile you may need to export paths to include openssl:
+ *
+ * export LIBRARY_PATH=/usr/local/Cellar/openssl/1.0.2j/include
+ * export LD_LIBRARY_PATH=/usr/local/Cellar/openssl/1.0.2j/include
+ * export C_INCLUDE_PATH=/usr/local/Cellar/openssl/1.0.2j/include
  */
 
 #include <ngx_config.h>
@@ -10,10 +16,19 @@
 
 #include <jansson.h>
 
+#define TOKEN_PERIOD_MINUTES 20
+
 typedef struct {
 	ngx_str_t   auth_jwt_loginurl;
 	ngx_str_t   auth_jwt_key;
 	ngx_flag_t  auth_jwt_enabled;
+	ngx_str_t   auth_jwt_cookie_name;
+	ngx_str_t   auth_jwt_cookie_legacy_name;
+	ngx_flag_t  auth_jwt_cookie_reissue_enabled;
+	ngx_str_t   auth_jwt_cookie_reissue_domain;
+	ngx_flag_t  auth_jwt_cookie_reissue_secure;
+	ngx_flag_t  auth_jwt_cookie_reissue_httponly;
+
 } ngx_http_auth_jwt_loc_conf_t;
 
 static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf);
@@ -38,7 +53,7 @@ static ngx_command_t  ngx_http_auth_jwt_commands[] = {
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_key),
 		NULL },
-	  
+
 	{ ngx_string("auth_jwt_enabled"),
 		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
 		ngx_conf_set_flag_slot,
@@ -46,7 +61,49 @@ static ngx_command_t  ngx_http_auth_jwt_commands[] = {
 		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_enabled),
 		NULL },
 
-    ngx_null_command
+	{ ngx_string("auth_jwt_cookie_name"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_cookie_name),
+		NULL },
+
+	{ ngx_string("auth_jwt_cookie_legacy_name"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_cookie_legacy_name),
+		NULL },	
+
+	{ ngx_string("auth_jwt_cookie_reissue_enabled"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+		ngx_conf_set_flag_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_cookie_reissue_enabled),
+		NULL },
+
+	{ ngx_string("auth_jwt_cookie_reissue_domain"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_cookie_reissue_domain),
+		NULL },
+
+	{ ngx_string("auth_jwt_cookie_reissue_secure"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+		ngx_conf_set_flag_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_cookie_reissue_secure),
+		NULL },
+
+	{ ngx_string("auth_jwt_cookie_reissue_httponly"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+		ngx_conf_set_flag_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_cookie_reissue_httponly),
+		NULL },
+
+	ngx_null_command
 };
 
 
@@ -84,19 +141,20 @@ ngx_module_t  ngx_http_auth_jwt_module = {
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 {
 	ngx_int_t n;
-	ngx_str_t jwtCookieName = ngx_string("rampartjwt");
-	ngx_str_t passportKeyCookieName = ngx_string("PassportKey");
+//	ngx_str_t jwtCookieName = ngx_string("rampartjwt");
+//	ngx_str_t passportKeyCookieName = ngx_string("PassportKey");
 	ngx_str_t jwtCookieVal;
 	char* jwtCookieValChrPtr;
 	char* return_url;
 	ngx_http_auth_jwt_loc_conf_t  *jwtcf;
 	u_char *keyBinary;
-	jwt_t *jwt;
+	jwt_t *jwt = NULL;
 	int jwtParseReturnCode;
 	jwt_alg_t alg;
 	time_t exp;
 	time_t now;
-	
+	double expseconds_from_now;
+
 	jwtcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
 	
 	if (!jwtcf->auth_jwt_enabled) 
@@ -110,11 +168,11 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	
 	// get the cookie
 	// TODO: the cookie name could be passed in dynamicallly
-	n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &jwtCookieName, &jwtCookieVal);
+	n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &jwtcf->auth_jwt_cookie_name, &jwtCookieVal);
 	if (n == NGX_DECLINED) 
 	{
 		// if we can't find the first cookie, check the legacy location
-		n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &passportKeyCookieName, &jwtCookieVal);
+		n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &jwtcf->auth_jwt_cookie_legacy_name, &jwtCookieVal);
 		if (n == NGX_DECLINED)
 		{
 			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to obtain a jwt cookie");
@@ -158,11 +216,78 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	// validate the exp date of the JWT
 	exp = (time_t)jwt_get_grant_int(jwt, "exp");
 	now = time(NULL);
-	if (exp < now)
+	expseconds_from_now = difftime(exp, now);
+	if (expseconds_from_now < 0)
 	{
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the jwt has expired");
 		goto redirect;
 	}
+
+	if (jwtcf->auth_jwt_cookie_reissue_enabled)
+	{
+		// if the token is not in the first minute of use, renew it.
+		if (expseconds_from_now < ((TOKEN_PERIOD_MINUTES - 1) * 60))
+		{
+			struct tm* newexp_tm;
+			time_t newexp;
+			char *newJwtCookieValChrPtr;
+
+			// create a new JWT to return for the cookies
+			// you could gamble with time arithmetric, but this is the proper way to do it
+			newexp_tm = localtime(&now);
+			newexp_tm->tm_min += TOKEN_PERIOD_MINUTES;
+			newexp = mktime(newexp_tm);
+			jwt_add_grant_int(jwt, "exp", newexp);
+			newJwtCookieValChrPtr = jwt_encode_str(jwt);
+
+			u_char * cookie;
+			u_char * p;
+			int len;
+
+			len = jwtcf->auth_jwt_cookie_name.len + sizeof("=") - 1 + strlen(newJwtCookieValChrPtr);
+
+			// currently we are not expiring our cookies
+			// len += sizeof("; expires=") - 1 + sizeof("Mon, 01 Sep 1970 00:00:00 GMT") - 1;
+
+			len += sizeof("; Domain=") - 1;
+			len += sizeof(jwtcf->auth_jwt_cookie_reissue_domain.len);
+			len += sizeof("; Path=/");  // TODO: Make this configurable
+			if (jwtcf->auth_jwt_cookie_reissue_secure)
+			{
+				len += sizeof("; Secure") - 1;
+			}
+			if (jwtcf->auth_jwt_cookie_reissue_httponly)
+			{
+				len += sizeof("; HttpOnly") - 1;
+			}
+
+			cookie = ngx_pnalloc(r->pool, len);
+			p = ngx_copy(cookie, jwtcf->auth_jwt_cookie_name.data, jwtcf->auth_jwt_cookie_name.len);
+			*p++ = '=';
+			p = ngx_copy(p, newJwtCookieValChrPtr, strlen(newJwtCookieValChrPtr));
+
+			p = ngx_copy(p, "; Domain=", sizeof("; Domain=") - 1);
+			p = ngx_copy(p, jwtcf->auth_jwt_cookie_reissue_domain.data, jwtcf->auth_jwt_cookie_reissue_domain.len);
+
+			p = ngx_copy(p, "; Path=/", sizeof("; Path=/") - 1);
+
+			if (jwtcf->auth_jwt_cookie_reissue_secure)
+			{
+				p = ngx_copy(p, "; Secure", sizeof("; Secure") - 1);
+			}
+			if (jwtcf->auth_jwt_cookie_reissue_httponly)
+			{
+				p = ngx_copy(p, "; HttpOnly", sizeof("; HttpOnly") - 1);
+			}
+
+			// this memory was malloc in call to jwt_encode_str
+			free(newJwtCookieValChrPtr);
+			newJwtCookieValChrPtr = NULL;
+		}
+	}
+
+	jwt_free(jwt);
+	jwt = NULL;
 	
 	return NGX_OK;
 	
@@ -201,8 +326,8 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			if(request_uri_var && !request_uri_var->not_found && request_uri_var->valid)
 			{
 				// ideally we would like the uri with the querystring parameters
-			        uri.data = ngx_palloc(r->pool, request_uri_var->len);
-			        uri.len = request_uri_var->len;
+					uri.data = ngx_palloc(r->pool, request_uri_var->len);
+					uri.len = request_uri_var->len;
 				ngx_memcpy(uri.data, request_uri_var->data, request_uri_var->len);
 			}
 			else
@@ -211,21 +336,20 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 				uri = r->uri;
 			}
 
-			r->headers_out.location->value.len = loginlen + sizeof("?return_url=") - 1 + strlen(scheme) + sizeof("://") - 1 + server.len + uri.len;
-			return_url = ngx_alloc(r->headers_out.location->value.len, r->connection->log);
-			ngx_memcpy(return_url, jwtcf->auth_jwt_loginurl.data, jwtcf->auth_jwt_loginurl.len);
-			int return_url_idx = jwtcf->auth_jwt_loginurl.len;
-			ngx_memcpy(return_url+return_url_idx, "?return_url=", sizeof("?return_url=") - 1);
-			return_url_idx += sizeof("?return_url=") - 1;
-			ngx_memcpy(return_url+return_url_idx, scheme, strlen(scheme));
-			return_url_idx += strlen(scheme);
-			ngx_memcpy(return_url+return_url_idx, "://", sizeof("://") - 1);
-			return_url_idx += sizeof("://") - 1;
-			ngx_memcpy(return_url+return_url_idx, server.data, server.len);
-			return_url_idx += server.len;
-			ngx_memcpy(return_url+return_url_idx, uri.data, uri.len);
-			return_url_idx += uri.len;
-			r->headers_out.location->value.data = (u_char *)return_url;
+			{
+				void * return_url_p;
+
+				r->headers_out.location->value.len = loginlen + sizeof("?return_url=") - 1 + strlen(scheme) + sizeof("://") - 1 + server.len + uri.len;
+				return_url = ngx_alloc(r->headers_out.location->value.len, r->connection->log);
+				return_url_p = return_url;
+				return_url_p = ngx_copy(return_url_p, jwtcf->auth_jwt_loginurl.data, jwtcf->auth_jwt_loginurl.len);
+				return_url_p = ngx_copy(return_url_p, "?return_url=", sizeof("?return_url=") - 1);
+				return_url_p = ngx_copy(return_url_p, scheme, strlen(scheme));
+				return_url_p = ngx_copy(return_url_p, "://", sizeof("://") - 1);
+				return_url_p = ngx_copy(return_url_p, server.data, server.len);
+				return_url_p = ngx_copy(return_url_p, uri.data, uri.len);
+				r->headers_out.location->value.data = (u_char *)return_url;
+			}
 
 			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "redirect for get request");
 		}
@@ -234,6 +358,12 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			// for non-get requests, redirect to the login page without a return URL
 			r->headers_out.location->value.len = jwtcf->auth_jwt_loginurl.len;
 			r->headers_out.location->value.data = jwtcf->auth_jwt_loginurl.data;
+		}
+
+		if (jwt != NULL)
+		{
+			jwt_free(jwt);
+			jwt = NULL;
 		}
 
 		return NGX_HTTP_MOVED_TEMPORARILY;
@@ -269,12 +399,15 @@ ngx_http_auth_jwt_create_loc_conf(ngx_conf_t *cf)
 	{
 		return NULL;
 	}
-	
+
 	// set the flag to unset
 	conf->auth_jwt_enabled = (ngx_flag_t) -1;
+	conf->auth_jwt_cookie_reissue_enabled = (ngx_flag_t) -1;
+	conf->auth_jwt_cookie_reissue_secure = (ngx_flag_t) -1;
+	conf->auth_jwt_cookie_reissue_httponly = (ngx_flag_t) -1;
 
 	ngx_conf_log_error(NGX_LOG_DEBUG, cf, 0, "Created Location Configuration");
-	
+
 	return conf;
 }
 
@@ -285,21 +418,38 @@ ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 	ngx_http_auth_jwt_loc_conf_t  *prev = parent;
 	ngx_http_auth_jwt_loc_conf_t  *conf = child;
 
+	ngx_conf_merge_str_value(conf->auth_jwt_cookie_name, prev->auth_jwt_cookie_name, "");
+	ngx_conf_merge_str_value(conf->auth_jwt_cookie_legacy_name, prev->auth_jwt_cookie_legacy_name, "");
 	ngx_conf_merge_str_value(conf->auth_jwt_loginurl, prev->auth_jwt_loginurl, "");
 	ngx_conf_merge_str_value(conf->auth_jwt_key, prev->auth_jwt_key, "");
-	
-	
-	if (conf->auth_jwt_enabled == ((ngx_flag_t) -1)) 
+	ngx_conf_merge_str_value(conf->auth_jwt_cookie_reissue_domain, prev->auth_jwt_cookie_reissue_domain, "");
+
+	if (conf->auth_jwt_enabled == ((ngx_flag_t) -1))
 	{
-	        conf->auth_jwt_enabled = (prev->auth_jwt_enabled == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_enabled;
+		conf->auth_jwt_enabled = (prev->auth_jwt_enabled == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_enabled;
 	}
-	
+
+	if (conf->auth_jwt_cookie_reissue_enabled == ((ngx_flag_t) -1))
+	{
+		conf->auth_jwt_cookie_reissue_enabled = (prev->auth_jwt_cookie_reissue_enabled == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_cookie_reissue_enabled;
+	}
+
+	if (conf->auth_jwt_cookie_reissue_secure == ((ngx_flag_t) -1))
+	{
+		conf->auth_jwt_cookie_reissue_secure = (prev->auth_jwt_cookie_reissue_secure == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_cookie_reissue_secure;
+	}
+
+	if (conf->auth_jwt_cookie_reissue_httponly == ((ngx_flag_t) -1))
+	{
+		conf->auth_jwt_cookie_reissue_httponly = (prev->auth_jwt_cookie_reissue_httponly == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_cookie_reissue_httponly;
+	}
+
 	ngx_conf_log_error(NGX_LOG_DEBUG, cf, 0, "Merged Location Configuration");
 
 //	ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "Key: %s, Enabled: %d", 
 //			conf->auth_jwt_key.data, 
 //			conf->auth_jwt_enabled);
-    return NGX_CONF_OK;
+	return NGX_CONF_OK;
 }
 
 static int
@@ -314,13 +464,13 @@ hex_char_to_binary( char ch, char* ret )
 		*ret = ( ch - 'A' ) + 10;  
 	else
 		return *ret = 0;
-	return 1;       
+	return 1;
 }
 
 static int
 hex_to_binary( const char* str, u_char* buf, int len ) {
-	u_char	
-        *cpy = buf;
+	u_char
+		*cpy = buf;
 	char
 		low,
 		high;
@@ -337,6 +487,6 @@ hex_to_binary( const char* str, u_char* buf, int len ) {
 		
 		*cpy++ = low | (high << 4);
 	}
-	return 0;                              
+	return 0;
 }
 
