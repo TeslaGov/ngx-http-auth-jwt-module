@@ -3,24 +3,31 @@
 # build
 DOCKER_IMAGE_NAME=jwt-nginx
 docker build -t ${DOCKER_IMAGE_NAME} .
-CONTAINER_ID=$(docker run -itd ${DOCKER_IMAGE_NAME} sh)
+CONTAINER_ID=$(docker run -d -p 8000:8000 ${DOCKER_IMAGE_NAME})
 
-# setup test
-rm -rf ./lib
-rm -rf ./modules
-mkdir modules
-DOCKER_TEST_IMAGE_NAME=jwt-nginx-test
-docker build -t ${DOCKER_TEST_IMAGE_NAME} test/.
-CONTAINER_TEST_ID=$(docker run -p 8000:8000 -itd ${DOCKER_TEST_IMAGE_NAME} sh)
-docker cp ${CONTAINER_ID}:/usr/local/lib .
-docker cp lib ${CONTAINER_TEST_ID}:/usr/local
-docker cp ${CONTAINER_ID}:/root/dl/nginx/objs/ngx_http_auth_jwt_module.so modules/.
-docker cp modules/ngx_http_auth_jwt_module.so ${CONTAINER_TEST_ID}:/usr/lib64/nginx/modules/.
-docker cp resources/test-jwt-nginx.conf ${CONTAINER_TEST_ID}:/etc/nginx/conf.d/test-jwt-nginx.conf
-docker cp resources/nginx.conf ${CONTAINER_TEST_ID}:/etc/nginx/.
+MACHINE_IP=`docker-machine ip`
 
-docker exec -d ${CONTAINER_TEST_ID} /bin/bash -c "export LD_LIBRARY_PATH=/usr/local/lib && nginx" 
+RED='\033[01;31m'
+GREEN='\033[01;32m'
+NONE='\033[00m'
 
+TEST_INSECURE_EXPECT_200=`curl -o /dev/null --silent --head --write-out '%{http_code}\n' http://${MACHINE_IP}:8000`
+if [ "$TEST_INSECURE_EXPECT_200" -eq "200" ];then
+  echo -e "${GREEN}Insecure test pass ${TEST_INSECURE_EXPECT_200}${NONE}";
+else
+  echo -e "${RED}Insecure test fail ${TEST_INSECURE_EXPECT_200}${NONE}";
+fi
 
+TEST_SECURE_EXPECT_302=`curl -o /dev/null --silent --head --write-out '%{http_code}\n' http://${MACHINE_IP}:8000/secure/index.html`
+if [ "$TEST_SECURE_EXPECT_302" -eq "302" ];then
+  echo -e "${GREEN}Secure test without jwt pass ${TEST_SECURE_EXPECT_302}${NONE}";
+else
+  echo -e "${RED}Secure test without jwt fail ${TEST_SECURE_EXPECT_302}${NONE}";
+fi
 
-
+TEST_SECURE_EXPECT_200=`curl -o /dev/null --silent --head --write-out '%{http_code}\n' http://${MACHINE_IP}:8000/secure/index.html -H 'cache-control: no-cache' --cookie "rampartjwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzb21lLWxvbmctdXVpZCIsImZpcnN0TmFtZSI6ImhlbGxvIiwgImxhc3ROYW1lIjoid29ybGQiLCJlbWFpbEFkZHJlc3MiOiJoZWxsb3dvcmxkQGV4YW1wbGUuY29tIiwgInJvbGVzIjpbInRoaXMiLCJ0aGF0IiwidGhlb3RoZXIiXSwgImlzcyI6Imlzc3VlciIsInBlcnNvbklkIjoiNzViYjNjYzctYjkzMy00NGYwLTkzYzYtMTQ3YjA4MmZhZGI1IiwgImV4cCI6MTkwODgzNTIwMCwiaWF0IjoxNDg4ODE5NjAwLCJ1c2VybmFtZSI6ImhlbGxvLndvcmxkIn0.TvDD63ZOqFKgE-uxPDdP5aGIsbl5xPKz4fMul3Zlti4;PassportKey=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzb21lLWxvbmctdXVpZCIsImZpcnN0TmFtZSI6ImhlbGxvIiwgImxhc3ROYW1lIjoid29ybGQiLCJlbWFpbEFkZHJlc3MiOiJoZWxsb3dvcmxkQGV4YW1wbGUuY29tIiwgInJvbGVzIjpbInRoaXMiLCJ0aGF0IiwidGhlb3RoZXIiXSwgImlzcyI6Imlzc3VlciIsInBlcnNvbklkIjoiNzViYjNjYzctYjkzMy00NGYwLTkzYzYtMTQ3YjA4MmZhZGI1IiwgImV4cCI6MTkwODgzNTIwMCwiaWF0IjoxNDg4ODE5NjAwLCJ1c2VybmFtZSI6ImhlbGxvLndvcmxkIn0.TvDD63ZOqFKgE-uxPDdP5aGIsbl5xPKz4fMul3Zlti4"`
+if [ "$TEST_SECURE_EXPECT_200" -eq "200" ];then
+  echo -e "${GREEN}Secure test with jwt pass ${TEST_SECURE_EXPECT_200}${NONE}";
+else
+  echo -e "${RED}Secure test with jwt fail ${TEST_SECURE_EXPECT_200}${NONE}";
+fi
