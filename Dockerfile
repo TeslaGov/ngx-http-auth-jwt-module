@@ -1,10 +1,8 @@
 FROM centos:7
 
-MAINTAINER Tesla Government email: developers@teslagov.com
+LABEL maintainer="TeslaGov" email="developers@teslagov.com"
 
 ENV LD_LIBRARY_PATH=/usr/local/lib
-
-COPY ./resources/nginx.repo /etc/yum.repos.d/nginx.repo
 
 RUN yum -y update && \
 	yum -y groupinstall 'Development Tools' && \
@@ -26,7 +24,7 @@ RUN wget https://github.com/akheron/jansson/archive/v2.10.zip && \
 	rm v2.10.zip && \
 	ln -sf jansson-2.10 jansson && \
 	cd /root/dl/jansson && \
-	cmake . -DJANSSON_BUILD_SHARED_LIBS=1 -DJANSSON_BUILD_DOCS=OFF &&
+	cmake . -DJANSSON_BUILD_SHARED_LIBS=1 -DJANSSON_BUILD_DOCS=OFF && \
 	make && \
 	make check && \
 	make install
@@ -50,14 +48,3 @@ RUN wget http://nginx.org/download/nginx-1.12.0.tar.gz && \
 	cd /root/dl/nginx && \
 	./configure --with-compat --add-dynamic-module=../ngx-http-auth-jwt-module --with-cc-opt='-std=gnu99' && \
 	make modules
-
-# setup a test for the new module
-RUN cp -r /usr/share/nginx/html /usr/share/nginx/secure
-COPY ./resources/test-jwt-nginx.conf /etc/nginx/conf.d/test-jwt-nginx.conf
-# download and run nginx binary
-RUN yum -y install nginx-1.12.0 && \
-	cp /root/dl/nginx/objs/ngx_http_auth_jwt_module.so /etc/nginx/modules/. && \
-	nginx
-
-EXPOSE 8000
-
