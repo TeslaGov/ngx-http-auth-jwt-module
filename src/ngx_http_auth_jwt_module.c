@@ -187,6 +187,8 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			ngx_int_t uri_variable_hash;
 			ngx_http_variable_value_t * request_uri_var;
 			ngx_str_t uri;
+			ngx_str_t uri_escaped;
+			uintptr_t escaped_len;
 
 			loginlen = jwtcf->auth_jwt_loginurl.len;
 
@@ -197,7 +199,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			uri_variable_hash = ngx_hash_key(uri_variable_name.data, uri_variable_name.len);
 			request_uri_var = ngx_http_get_variable(r, &uri_variable_name, uri_variable_hash);
 
-			// get the uri
+			// get the URI
 			if(request_uri_var && !request_uri_var->not_found && request_uri_var->valid)
 			{
 				// ideally we would like the uri with the querystring parameters
@@ -211,7 +213,13 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 				uri = r->uri;
 			}
 
-			r->headers_out.location->value.len = loginlen + sizeof("?return_url=") - 1 + strlen(scheme) + sizeof("://") - 1 + server.len + uri.len;
+			// escape the URI
+			escaped_len = ngx_escape_uri(NULL, uri.data, uri.len, NGX_ESCAPE_URI);
+			uri_escaped.data = ngx_palloc(r->pool, escaped_len);
+			uri_escaped.len = escaped_len;
+			ngx_escape_uri(uri_escaped.data, uri.data, uri.len, NGX_ESCAPE_URI);
+
+			r->headers_out.location->value.len = loginlen + sizeof("?return_url=") - 1 + strlen(scheme) + sizeof("://") - 1 + server.len + url_escaped.len;
 			return_url = ngx_alloc(r->headers_out.location->value.len, r->connection->log);
 			ngx_memcpy(return_url, jwtcf->auth_jwt_loginurl.data, jwtcf->auth_jwt_loginurl.len);
 			int return_url_idx = jwtcf->auth_jwt_loginurl.len;
@@ -223,8 +231,8 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			return_url_idx += sizeof("://") - 1;
 			ngx_memcpy(return_url+return_url_idx, server.data, server.len);
 			return_url_idx += server.len;
-			ngx_memcpy(return_url+return_url_idx, uri.data, uri.len);
-			return_url_idx += uri.len;
+			ngx_memcpy(return_url+return_url_idx, url_escaped.data, url_escaped.len);
+			return_url_idx += url_escaped.len;
 			r->headers_out.location->value.data = (u_char *)return_url;
 
 			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "redirect for get request");
