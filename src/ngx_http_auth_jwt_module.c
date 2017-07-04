@@ -223,7 +223,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			}
 
 			// escape the URI
-			escaped_len = ngx_escape_uri(NULL, uri.data, uri.len, NGX_ESCAPE_URI);
+			escaped_len = 2 * ngx_escape_uri(NULL, uri.data, uri.len, NGX_ESCAPE_URI) + uri.len;
 			uri_escaped.data = ngx_palloc(r->pool, escaped_len);
 			uri_escaped.len = escaped_len;
 			ngx_escape_uri(uri_escaped.data, uri.data, uri.len, NGX_ESCAPE_URI);
