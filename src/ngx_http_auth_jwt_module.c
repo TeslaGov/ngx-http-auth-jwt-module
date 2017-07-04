@@ -117,7 +117,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &passportKeyCookieName, &jwtCookieVal);
 		if (n == NGX_DECLINED)
 		{
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to obtain a jwt cookie");
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a jwt");
 			goto redirect;
 		}
 	}
@@ -235,10 +235,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			return_url_idx += uri_escaped.len;
 			r->headers_out.location->value.data = (u_char *)return_url;
 
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "redirect for get request");
-
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "uri: %s", uri.data);
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "uri_escaped: %s", uri_escaped.data);
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "return_url: %s", return_url);
 		}
 		else
 		{
