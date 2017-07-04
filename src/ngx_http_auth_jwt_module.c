@@ -183,7 +183,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			int loginlen;
 			char * scheme;
 			ngx_str_t server;
-			ngx_str_t uri_variable_name = ngx_string("request_uri");;
+			ngx_str_t uri_variable_name = ngx_string("request_uri");
 			ngx_int_t uri_variable_hash;
 			ngx_http_variable_value_t * request_uri_var;
 			ngx_str_t uri;
@@ -206,11 +206,15 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 				uri.data = ngx_palloc(r->pool, request_uri_var->len);
 				uri.len = request_uri_var->len;
 				ngx_memcpy(uri.data, request_uri_var->data, request_uri_var->len);
+
+				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "found uri with querystring");
 			}
 			else
 			{
 				// fallback to the querystring without params
 				uri = r->uri;
+
+				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "fallback to querystring without params");
 			}
 
 			// escape the URI
