@@ -219,7 +219,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			uri_escaped.len = escaped_len;
 			ngx_escape_uri(uri_escaped.data, uri.data, uri.len, NGX_ESCAPE_URI);
 
-			r->headers_out.location->value.len = loginlen + sizeof("?return_url=") - 1 + strlen(scheme) + sizeof("://") - 1 + server.len + url_escaped.len;
+			r->headers_out.location->value.len = loginlen + sizeof("?return_url=") - 1 + strlen(scheme) + sizeof("://") - 1 + server.len + uri_escaped.len;
 			return_url = ngx_alloc(r->headers_out.location->value.len, r->connection->log);
 			ngx_memcpy(return_url, jwtcf->auth_jwt_loginurl.data, jwtcf->auth_jwt_loginurl.len);
 			int return_url_idx = jwtcf->auth_jwt_loginurl.len;
@@ -231,8 +231,8 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			return_url_idx += sizeof("://") - 1;
 			ngx_memcpy(return_url+return_url_idx, server.data, server.len);
 			return_url_idx += server.len;
-			ngx_memcpy(return_url+return_url_idx, url_escaped.data, url_escaped.len);
-			return_url_idx += url_escaped.len;
+			ngx_memcpy(return_url+return_url_idx, uri_escaped.data, uri_escaped.len);
+			return_url_idx += uri_escaped.len;
 			r->headers_out.location->value.data = (u_char *)return_url;
 
 			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "redirect for get request");
