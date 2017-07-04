@@ -236,6 +236,9 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			r->headers_out.location->value.data = (u_char *)return_url;
 
 			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "redirect for get request");
+
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "uri: %s", uri.data);
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "uri_escaped: %s", uri_escaped.data);
 		}
 		else
 		{
