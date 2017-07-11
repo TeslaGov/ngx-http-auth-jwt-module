@@ -3,7 +3,7 @@
 # build
 DOCKER_IMAGE_NAME=jwt-nginx
 docker build -t ${DOCKER_IMAGE_NAME} .
-CONTAINER_ID=$(docker run -d -p 8000:8000 ${DOCKER_IMAGE_NAME})
+CONTAINER_ID=$(docker run --name "${DOCKER_IMAGE_NAME}-cont" -d -p 8000:8000 ${DOCKER_IMAGE_NAME})
 
 MACHINE_IP=`docker-machine ip`
 

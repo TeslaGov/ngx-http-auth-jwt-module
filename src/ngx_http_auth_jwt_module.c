@@ -22,6 +22,7 @@ static void * ngx_http_auth_jwt_create_loc_conf(ngx_conf_t *cf);
 static char * ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
 static int hex_char_to_binary( char ch, char* ret );
 static int hex_to_binary( const char* str, u_char* buf, int len );
+static char * ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t str);
 
 static ngx_command_t ngx_http_auth_jwt_commands[] = {
 
@@ -123,14 +124,12 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	}
 	
 	// the cookie data is not necessarily null terminated... we need a null terminated character pointer
-	jwtCookieValChrPtr = ngx_alloc(jwtCookieVal.len + 1, r->connection->log);
-	ngx_memcpy(jwtCookieValChrPtr, jwtCookieVal.data, jwtCookieVal.len);
-	*(jwtCookieValChrPtr+jwtCookieVal.len) = '\0';
+	jwtCookieValChrPtr = ngx_str_t_to_char_ptr(r->pool, jwtCookieVal);
 
 //	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "rampartjwt: %s %d", jwtCookieValChrPtr, jwtCookieVal.len);
 	
 	// convert key from hex to binary
-	keyBinary = ngx_alloc(jwtcf->auth_jwt_key.len / 2, r->connection->log);
+	keyBinary = ngx_palloc(r->pool, jwtcf->auth_jwt_key.len / 2);
 	if (0 != hex_to_binary((char *)jwtcf->auth_jwt_key.data, keyBinary, jwtcf->auth_jwt_key.len))
 	{
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to turn hex key into binary");
@@ -207,29 +206,24 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 				uri.len = request_uri_var->len;
 				ngx_memcpy(uri.data, request_uri_var->data, request_uri_var->len);
 
-
-				char * tmp = ngx_alloc(uri.len + 1, r->connection->log);
-				ngx_memcpy(tmp, uri.data, uri.len);
-				*(tmp+uri.len) = '\0';
-
-				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "found uri with querystring %s", tmp);
+				// ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "found uri with querystring %s", ngx_str_t_to_char_ptr(r->pool, uri));
 			}
 			else
 			{
 				// fallback to the querystring without params
 				uri = r->uri;
 
-				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "fallback to querystring without params");
+				// ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "fallback to querystring without params");
 			}
 
 			// escape the URI
-			escaped_len = 2 * ngx_escape_uri(NULL, uri.data, uri.len, NGX_ESCAPE_URI) + uri.len;
+			escaped_len = 2 * ngx_escape_uri(NULL, uri.data, uri.len, NGX_ESCAPE_ARGS) + uri.len;
 			uri_escaped.data = ngx_palloc(r->pool, escaped_len);
 			uri_escaped.len = escaped_len;
-			ngx_escape_uri(uri_escaped.data, uri.data, uri.len, NGX_ESCAPE_URI);
+			ngx_escape_uri(uri_escaped.data, uri.data, uri.len, NGX_ESCAPE_ARGS);
 
 			r->headers_out.location->value.len = loginlen + sizeof("?return_url=") - 1 + strlen(scheme) + sizeof("://") - 1 + server.len + uri_escaped.len;
-			return_url = ngx_alloc(r->headers_out.location->value.len, r->connection->log);
+			return_url = ngx_palloc(r->pool, r->headers_out.location->value.len);
 			ngx_memcpy(return_url, jwtcf->auth_jwt_loginurl.data, jwtcf->auth_jwt_loginurl.len);
 			int return_url_idx = jwtcf->auth_jwt_loginurl.len;
 			ngx_memcpy(return_url+return_url_idx, "?return_url=", sizeof("?return_url=") - 1);
@@ -244,7 +238,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			return_url_idx += uri_escaped.len;
 			r->headers_out.location->value.data = (u_char *)return_url;
 
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "return_url: %s", return_url);
+			// ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "return_url: %s", ngx_str_t_to_char_ptr(r->pool, r->headers_out.location->value));
 		}
 		else
 		{
@@ -335,7 +329,8 @@ hex_char_to_binary( char ch, char* ret )
 }
 
 static int
-hex_to_binary( const char* str, u_char* buf, int len ) {
+hex_to_binary( const char* str, u_char* buf, int len ) 
+{
 	u_char	
 		*cpy = buf;
 	char
@@ -356,4 +351,14 @@ hex_to_binary( const char* str, u_char* buf, int len ) {
 	}
 	return 0;
 }
+
+/** copies an nginx string structure to a newly allocated character pointer */
+static char* ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t str)
+{
+	char* char_ptr = ngx_palloc(pool, str.len + 1);
+	ngx_memcpy(char_ptr, str.data, str.len);
+	*(char_ptr + str.len) = '\0';
+	return char_ptr;
+}
+
 
