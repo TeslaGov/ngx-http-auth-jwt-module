@@ -206,16 +206,14 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 				uri.len = request_uri_var->len;
 				ngx_memcpy(uri.data, request_uri_var->data, request_uri_var->len);
 
-				char * tmp = ngx_str_t_to_char_ptr(r->pool, uri);
-
-				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "found uri with querystring %s", tmp);
+				// ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "found uri with querystring %s", ngx_str_t_to_char_ptr(r->pool, uri));
 			}
 			else
 			{
 				// fallback to the querystring without params
 				uri = r->uri;
 
-				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "fallback to querystring without params");
+				// ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "fallback to querystring without params");
 			}
 
 			// escape the URI
@@ -240,9 +238,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			return_url_idx += uri_escaped.len;
 			r->headers_out.location->value.data = (u_char *)return_url;
 
-			char* return_url_printable = ngx_str_t_to_char_ptr(r->pool, r->headers_out.location->value);
-
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "return_url: %s", return_url_printable);
+			// ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "return_url: %s", ngx_str_t_to_char_ptr(r->pool, r->headers_out.location->value));
 		}
 		else
 		{
