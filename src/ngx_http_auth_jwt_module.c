@@ -240,7 +240,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			return_url_idx += uri_escaped.len;
 			r->headers_out.location->value.data = (u_char *)return_url;
 
-			char* return_url_printable = ngx_str_t_to_char_ptr(r->pool, return_url);
+			char* return_url_printable = ngx_str_t_to_char_ptr(r->pool, r->headers_out.location->value);
 
 			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "return_url: %s", return_url_printable);
 		}
