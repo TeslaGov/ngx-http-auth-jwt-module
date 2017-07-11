@@ -2,6 +2,10 @@ FROM centos:7
 
 LABEL maintainer="TeslaGov" email="developers@teslagov.com"
 
+ARG NGINX_VERSION=1.12.0
+ARG JANSSON_VERSION=2.10
+ARG LIBJWT_VERSION=1.8.0
+
 COPY resources/nginx.repo /etc/yum.repos.d/nginx.repo
 
 ENV LD_LIBRARY_PATH=/usr/local/lib
@@ -9,7 +13,10 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 RUN yum -y update && \
 	yum -y groupinstall 'Development Tools' && \
 	yum -y install pcre-devel pcre zlib-devel openssl-devel wget cmake check-devel check && \
-	yum -y install nginx-1.12.0
+	yum -y install nginx-$NGINX_VERSION
+
+# for compiling for rh-nginx110
+# yum -y install libxml2 libxslt libxml2-devel libxslt-devel gd gd-devel perl-ExtUtils-Embed
 
 RUN mkdir -p /root/dl
 WORKDIR /root/dl
@@ -22,10 +29,10 @@ RUN wget https://github.com/TeslaGov/ngx-http-auth-jwt-module/archive/master.zip
 	ln -sf ngx-http-auth-jwt-module-master ngx-http-auth-jwt-module
 
 # build jansson
-RUN wget https://github.com/akheron/jansson/archive/v2.10.zip && \
-	unzip v2.10.zip && \
-	rm v2.10.zip && \
-	ln -sf jansson-2.10 jansson && \
+RUN wget https://github.com/akheron/jansson/archive/v$JANSSON_VERSION.zip && \
+	unzip v$JANSSON_VERSION.zip && \
+	rm v$JANSSON_VERSION.zip && \
+	ln -sf jansson-$JANSSON_VERSION jansson && \
 	cd /root/dl/jansson && \
 	cmake . -DJANSSON_BUILD_SHARED_LIBS=1 -DJANSSON_BUILD_DOCS=OFF && \
 	make && \
@@ -33,21 +40,30 @@ RUN wget https://github.com/akheron/jansson/archive/v2.10.zip && \
 	make install
 
 # build libjwt
-RUN wget https://github.com/benmcollins/libjwt/archive/v1.8.0.zip && \
-	unzip v1.8.0.zip && \
-	rm v1.8.0.zip && \
-	ln -sf libjwt-1.8.0 libjwt && \
+RUN wget https://github.com/benmcollins/libjwt/archive/v$LIBJWT_VERSION.zip && \
+	unzip v$LIBJWT_VERSION.zip && \
+	rm v$LIBJWT_VERSION.zip && \
+	ln -sf libjwt-$LIBJWT_VERSION libjwt && \
 	cd /root/dl/libjwt && \
 	autoreconf -i && \
 	./configure JANSSON_CFLAGS=/usr/local/include JANSSON_LIBS=/usr/local/lib && \
 	make all && \
 	make install
 
+# after 1.11.5 use this command
+# ./configure --with-compat --add-dynamic-module=../ngx-http-auth-jwt-module --with-cc-opt='-std=gnu99'
 # build nginx module against nginx sources
-RUN wget http://nginx.org/download/nginx-1.12.0.tar.gz && \
-	tar -xzf nginx-1.12.0.tar.gz && \
-	rm nginx-1.12.0.tar.gz && \
-	ln -sf nginx-1.12.0 nginx && \
+#
+# 1.10.2 from nginx by default use config flags... I had to add the -std=c99 and could not achieve "binary compatibility"
+# ./configure --add-dynamic-module=../ngx-http-auth-jwt-module --prefix=/etc/nginx --sbin-path=/usr/sbin/nginx --modules-path=/usr/lib64/nginx/modules --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log --pid-path=/var/run/nginx.pid --lock-path=/var/run/nginx.lock --http-client-body-temp-path=/var/cache/nginx/client_temp --http-proxy-temp-path=/var/cache/nginx/proxy_temp --http-fastcgi-temp-path=/var/cache/nginx/fastcgi_temp --http-uwsgi-temp-path=/var/cache/nginx/uwsgi_temp --http-scgi-temp-path=/var/cache/nginx/scgi_temp --user=nginx --group=nginx --with-file-aio --with-threads --with-ipv6 --with-http_addition_module --with-http_auth_request_module --with-http_dav_module --with-http_flv_module --with-http_gunzip_module --with-http_gzip_static_module --with-http_mp4_module --with-http_random_index_module --with-http_realip_module --with-http_secure_link_module --with-http_slice_module --with-http_ssl_module --with-http_stub_status_module --with-http_sub_module --with-http_v2_module --with-mail --with-mail_ssl_module --with-stream --with-stream_ssl_module --with-cc-opt='-O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector-strong --param=ssp-buffer-size=4 -grecord-gcc-switches -m64 -mtune=generic -std=c99'
+#
+# rh-nginx110 uses these config flags
+# ./configure --add-dynamic-module=../ngx-http-auth-jwt-module --prefix=/opt/rh/rh-nginx110/root/usr/share/nginx --sbin-path=/opt/rh/rh-nginx110/root/usr/sbin/nginx --modules-path=/opt/rh/rh-nginx110/root/usr/lib64/nginx/modules --conf-path=/etc/opt/rh/rh-nginx110/nginx/nginx.conf --error-log-path=/var/opt/rh/rh-nginx110/log/nginx/error.log --http-log-path=/var/opt/rh/rh-nginx110/log/nginx/access.log --http-client-body-temp-path=/var/opt/rh/rh-nginx110/lib/nginx/tmp/client_body --http-proxy-temp-path=/var/opt/rh/rh-nginx110/lib/nginx/tmp/proxy --http-fastcgi-temp-path=/var/opt/rh/rh-nginx110/lib/nginx/tmp/fastcgi --http-uwsgi-temp-path=/var/opt/rh/rh-nginx110/lib/nginx/tmp/uwsgi --http-scgi-temp-path=/var/opt/rh/rh-nginx110/lib/nginx/tmp/scgi --pid-path=/var/opt/rh/rh-nginx110/run/nginx/nginx.pid --lock-path=/var/opt/rh/rh-nginx110/lock/subsys/nginx --user=nginx --group=nginx --with-file-aio --with-ipv6 --with-http_ssl_module --with-http_v2_module --with-http_realip_module --with-http_addition_module --with-http_xslt_module=dynamic --with-http_image_filter_module=dynamic --with-http_sub_module --with-http_dav_module --with-http_flv_module --with-http_mp4_module --with-http_gunzip_module --with-http_gzip_static_module --with-http_random_index_module --with-http_secure_link_module --with-http_degradation_module --with-http_slice_module --with-http_stub_status_module --with-http_perl_module=dynamic --with-mail=dynamic --with-mail_ssl_module --with-pcre --with-pcre-jit --with-stream=dynamic --with-stream_ssl_module --with-debug --with-cc-opt='-O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector-strong --param=ssp-buffer-size=4 -grecord-gcc-switches -specs=/usr/lib/rpm/redhat/redhat-hardened-cc1 -m64 -mtune=generic -std=c99' --with-ld-opt='-Wl,-z,relro -specs=/usr/lib/rpm/redhat/redhat-hardened-ld -Wl,-E'
+
+RUN wget http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz && \
+	tar -xzf nginx-$NGINX_VERSION.tar.gz && \
+	rm nginx-$NGINX_VERSION.tar.gz && \
+	ln -sf nginx-$NGINX_VERSION nginx && \
 	cd /root/dl/nginx && \
 	./configure --with-compat --add-dynamic-module=../ngx-http-auth-jwt-module --with-cc-opt='-std=gnu99' && \
 	make modules && \
@@ -58,7 +74,6 @@ COPY resources/nginx.conf /etc/nginx/nginx.conf
 COPY resources/test-jwt-nginx.conf /etc/nginx/conf.d/test-jwt-nginx.conf
 RUN cp -r /usr/share/nginx/html /usr/share/nginx/secure
 
-WORKDIR /etc/nginx
-CMD ["nginx"]
+ENTRYPOINT ["/usr/sbin/nginx"]
 
 EXPOSE 8000
