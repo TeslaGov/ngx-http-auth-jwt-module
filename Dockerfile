@@ -25,8 +25,8 @@ WORKDIR /root/dl
 
 # get our JWT module
 # change this to get a specific version?
-RUN wget https://github.com/TeslaGov/$TESLA_REPO_NAME/archive/joefitz/match-rh-nginx110-version.zip && \
-	unzip match-rh-nginx110-version.zip && \
+ADD https://github.com/TeslaGov/$TESLA_REPO_NAME/archive/joefitz/match-rh-nginx110-version.zip .
+RUN unzip match-rh-nginx110-version.zip && \
 	rm match-rh-nginx110-version.zip && \
 	ln -sf $TESLA_REPO_NAME-joefitz-match-rh-nginx110-version $TESLA_REPO_NAME
 

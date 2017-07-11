@@ -22,7 +22,7 @@ static void * ngx_http_auth_jwt_create_loc_conf(ngx_conf_t *cf);
 static char * ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
 static int hex_char_to_binary( char ch, char* ret );
 static int hex_to_binary( const char* str, u_char* buf, int len );
-static char * ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t str);
+static char * ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t *str);
 
 static ngx_command_t ngx_http_auth_jwt_commands[] = {
 
