@@ -13,24 +13,14 @@ RUN yum -y update && \
 	yum -y install pcre-devel pcre zlib-devel openssl-devel wget cmake check-devel check && \
 	yum -y install nginx-$NGINX_VERSION
 
-ARG JANSSON_VERSION=2.10
-ARG LIBJWT_VERSION=1.8.0
-ARG TESLA_REPO_NAME=ngx-http-auth-jwt-module
-
 # for compiling for rh-nginx110
 # yum -y install libxml2 libxslt libxml2-devel libxslt-devel gd gd-devel perl-ExtUtils-Embed
 
 RUN mkdir -p /root/dl
 WORKDIR /root/dl
 
-# get our JWT module
-# change this to get a specific version?
-ADD https://github.com/TeslaGov/$TESLA_REPO_NAME/archive/joefitz/match-rh-nginx110-version.zip .
-RUN unzip match-rh-nginx110-version.zip && \
-	rm match-rh-nginx110-version.zip && \
-	ln -sf $TESLA_REPO_NAME-joefitz-match-rh-nginx110-version $TESLA_REPO_NAME
-
 # build jansson
+ARG JANSSON_VERSION=2.10
 RUN wget https://github.com/akheron/jansson/archive/v$JANSSON_VERSION.zip && \
 	unzip v$JANSSON_VERSION.zip && \
 	rm v$JANSSON_VERSION.zip && \
@@ -42,6 +32,7 @@ RUN wget https://github.com/akheron/jansson/archive/v$JANSSON_VERSION.zip && \
 	make install
 
 # build libjwt
+ARG LIBJWT_VERSION=1.8.0
 RUN wget https://github.com/benmcollins/libjwt/archive/v$LIBJWT_VERSION.zip && \
 	unzip v$LIBJWT_VERSION.zip && \
 	rm v$LIBJWT_VERSION.zip && \
@@ -51,6 +42,19 @@ RUN wget https://github.com/benmcollins/libjwt/archive/v$LIBJWT_VERSION.zip && \
 	./configure JANSSON_CFLAGS=/usr/local/include JANSSON_LIBS=/usr/local/lib && \
 	make all && \
 	make install
+
+# get our JWT module
+# change this to get a specific version?
+ARG TESLA_REPO_NAME=ngx-http-auth-jwt-module
+# this value should end with a trailing slash (or be blank)
+ARG TESLA_REPO_URL_PREFIX=joefitz/
+# this value should end with a trailing dash (or be blank)
+ARG TESLA_REPO_FILE_PREFIX=joefitz-
+ARG TESLA_REPO_FILENAME=match-rh-nginx110-version
+ADD https://github.com/TeslaGov/$TESLA_REPO_NAME/archive/${TESLA_REPO_URL_PREFIX}${TESLA_REPO_FILENAME}.zip .
+RUN unzip ${TESLA_REPO_FILENAME}.zip && \
+	rm ${TESLA_REPO_FILENAME}.zip && \
+	ln -sf ${TESLA_REPO_NAME}-${TESLA_REPO_FILE_PREFIX}${TESLA_REPO_FILENAME} ${TESLA_REPO_NAME}
 
 # after 1.11.5 use this command
 # ./configure --with-compat --add-dynamic-module=../ngx-http-auth-jwt-module --with-cc-opt='-std=gnu99'
