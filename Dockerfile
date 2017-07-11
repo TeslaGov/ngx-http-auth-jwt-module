@@ -3,8 +3,6 @@ FROM centos:7
 LABEL maintainer="TeslaGov" email="developers@teslagov.com"
 
 ARG NGINX_VERSION=1.12.0
-ARG JANSSON_VERSION=2.10
-ARG LIBJWT_VERSION=1.8.0
 
 COPY resources/nginx.repo /etc/yum.repos.d/nginx.repo
 
@@ -15,6 +13,10 @@ RUN yum -y update && \
 	yum -y install pcre-devel pcre zlib-devel openssl-devel wget cmake check-devel check && \
 	yum -y install nginx-$NGINX_VERSION
 
+ARG JANSSON_VERSION=2.10
+ARG LIBJWT_VERSION=1.8.0
+ARG TESLA_REPO_NAME=ngx-http-auth-jwt-module
+
 # for compiling for rh-nginx110
 # yum -y install libxml2 libxslt libxml2-devel libxslt-devel gd gd-devel perl-ExtUtils-Embed
 
@@ -23,10 +25,10 @@ WORKDIR /root/dl
 
 # get our JWT module
 # change this to get a specific version?
-RUN wget https://github.com/TeslaGov/ngx-http-auth-jwt-module/archive/master.zip && \
-	unzip master.zip && \
-	rm master.zip && \
-	ln -sf ngx-http-auth-jwt-module-master ngx-http-auth-jwt-module
+RUN wget https://github.com/TeslaGov/$TESLA_REPO_NAME/archive/joefitz/match-rh-nginx110-version.zip && \
+	unzip match-rh-nginx110-version.zip && \
+	rm match-rh-nginx110-version.zip && \
+	ln -sf $TESLA_REPO_NAME-joefitz-match-rh-nginx110-version $TESLA_REPO_NAME
 
 # build jansson
 RUN wget https://github.com/akheron/jansson/archive/v$JANSSON_VERSION.zip && \
