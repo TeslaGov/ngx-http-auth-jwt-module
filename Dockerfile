@@ -46,11 +46,12 @@ RUN wget https://github.com/benmcollins/libjwt/archive/v$LIBJWT_VERSION.zip && \
 # get our JWT module
 # change this to get a specific version?
 ARG TESLA_REPO_NAME=ngx-http-auth-jwt-module
-# this value should end with a trailing slash (or be blank)
-ARG TESLA_REPO_URL_PREFIX=joefitz/
-# this value should end with a trailing dash (or be blank)
-ARG TESLA_REPO_FILE_PREFIX=joefitz-
-ARG TESLA_REPO_FILENAME=match-rh-nginx110-version
+# ARG TESLA_REPO_URL_PREFIX=joefitz/
+# ARG TESLA_REPO_FILE_PREFIX=joefitz-
+# ARG TESLA_REPO_FILENAME=match-rh-nginx110-version
+ARG TESLA_REPO_URL_PREFIX=
+ARG TESLA_REPO_FILE_PREFIX=
+ARG TESLA_REPO_FILENAME=master
 ADD https://github.com/TeslaGov/$TESLA_REPO_NAME/archive/${TESLA_REPO_URL_PREFIX}${TESLA_REPO_FILENAME}.zip .
 RUN unzip ${TESLA_REPO_FILENAME}.zip && \
 	rm ${TESLA_REPO_FILENAME}.zip && \
