@@ -85,10 +85,11 @@ ngx_module_t ngx_http_auth_jwt_module = {
 
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 {
-	static const ngx_str_t jwtCookieName = ngx_string("rampartjwt");
-	static const ngx_str_t passportKeyCookieName = ngx_string("PassportKey");
-	static const ngx_str_t authorizationHeaderName = ngx_string("Authorization");
 	static const int BEARER_LEN = 7; // strlen("Bearer ");
+	
+	ngx_str_t jwtCookieName = ngx_string("rampartjwt");
+	ngx_str_t passportKeyCookieName = ngx_string("PassportKey");
+	ngx_str_t authorizationHeaderName = ngx_string("Authorization");
 	ngx_int_t n;
 	ngx_str_t jwtCookieVal;
 	char* jwtCookieValChrPtr;
