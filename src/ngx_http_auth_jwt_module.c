@@ -179,7 +179,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			goto redirect;
 		}
 
-		if (0 != strncmp(authorizationHeader->value.data + BEARER_LEN, jwtCookieVal.data, jwtCookieVal.len))
+		if (0 != strncmp(authorizationHeader->value.data + BEARER_LEN, jwtCookieVal.data, jwtCookieVal.len)) 
 		{
 			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Authorization and Cookie do not match content");
 			goto redirect;
