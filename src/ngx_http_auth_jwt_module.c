@@ -112,7 +112,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	
 	ngx_table_elt_t *h;
 	ngx_str_t authorizationHeaderName = ngx_string("Authorization");
-	h = search_headers_in(&r, authorizationHeaderName.data, authorizationHeaderName.len);
+	h = search_headers_in(r, authorizationHeaderName.data, authorizationHeaderName.len);
 	if (h != NULL)
 	{
 		char* authvalue = ngx_str_t_to_char_ptr(r->pool, h.value);
