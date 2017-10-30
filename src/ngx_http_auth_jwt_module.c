@@ -98,6 +98,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	jwt_alg_t alg;
 	time_t exp;
 	time_t now;
+	int BEARER_LEN = 7; // strlen("Bearer ");
 	
 	jwtcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
 	
@@ -109,16 +110,6 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 //	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Key: %s, Enabled: %d", 
 //			jwtcf->auth_jwt_key.data, 
 //			jwtcf->auth_jwt_enabled);
-	
-	ngx_table_elt_t *h;
-	ngx_str_t authorizationHeaderName = ngx_string("Authorization");
-	h = search_headers_in(r, authorizationHeaderName.data, authorizationHeaderName.len);
-	if (h != NULL)
-	{
-		char* authvalue = ngx_str_t_to_char_ptr(r->pool, h->value);
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "authorization header %s", authvalue);
-	}
-
 	
 
 	// get the cookie
@@ -175,6 +166,29 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		goto redirect;
 	}
 	
+	// if an Authorization header exists, it must match the cookie
+	ngx_table_elt_t *authorizationHeader;
+	ngx_str_t authorizationHeaderName = ngx_string("Authorization");
+	authorizationHeader = search_headers_in(r, authorizationHeaderName.data, authorizationHeaderName.len);
+	if (authorizationHeader != NULL)
+	{
+		// compare lengths first
+		if (authorizationHeader->value.len != jwtCookieVal.len + BEARER_LEN)
+		{
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Authorization and Cookie do not match lengths");
+			goto redirect;
+		}
+
+		if (0 != strncmp(authorizationHeader->value.data + BEARER_LEN, jwtCookieVal.data))
+		{
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Authorization and Cookie do not match content");
+			goto redirect;
+		}
+
+		char* authvalue = ngx_str_t_to_char_ptr(r->pool, authorizationHeader->value);
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "authorization header %s", authvalue);
+	}
+
 	return NGX_OK;
 	
 	redirect:
