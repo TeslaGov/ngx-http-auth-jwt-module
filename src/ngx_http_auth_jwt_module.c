@@ -85,9 +85,11 @@ ngx_module_t ngx_http_auth_jwt_module = {
 
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 {
+	static const ngx_str_t jwtCookieName = ngx_string("rampartjwt");
+	static const ngx_str_t passportKeyCookieName = ngx_string("PassportKey");
+	static const ngx_str_t authorizationHeaderName = ngx_string("Authorization");
+	static const int BEARER_LEN = 7; // strlen("Bearer ");
 	ngx_int_t n;
-	ngx_str_t jwtCookieName = ngx_string("rampartjwt");
-	ngx_str_t passportKeyCookieName = ngx_string("PassportKey");
 	ngx_str_t jwtCookieVal;
 	char* jwtCookieValChrPtr;
 	char* return_url;
@@ -98,7 +100,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	jwt_alg_t alg;
 	time_t exp;
 	time_t now;
-	int BEARER_LEN = 7; // strlen("Bearer ");
+	ngx_table_elt_t *authorizationHeader;
 	
 	jwtcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
 	
@@ -167,8 +169,6 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	}
 	
 	// if an Authorization header exists, it must match the cookie
-	ngx_table_elt_t *authorizationHeader;
-	ngx_str_t authorizationHeaderName = ngx_string("Authorization");
 	authorizationHeader = search_headers_in(r, authorizationHeaderName.data, authorizationHeaderName.len);
 	if (authorizationHeader != NULL)
 	{
@@ -179,14 +179,12 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			goto redirect;
 		}
 
+		// compare content
 		if (0 != strncmp((const char *)(authorizationHeader->value.data + BEARER_LEN), (const char *)jwtCookieVal.data, jwtCookieVal.len)) 
 		{
 			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Authorization and Cookie do not match content");
 			goto redirect;
 		}
-
-		char* authvalue = ngx_str_t_to_char_ptr(r->pool, authorizationHeader->value);
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "authorization header %s", authvalue);
 	}
 
 	return NGX_OK;
