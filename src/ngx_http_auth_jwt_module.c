@@ -109,6 +109,8 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 //			jwtcf->auth_jwt_key.data, 
 //			jwtcf->auth_jwt_enabled);
 	
+	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "authorization header %s", r->headers_in.authorization);
+
 	// get the cookie
 	// TODO: the cookie name could be passed in dynamicallly
 	n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &jwtCookieName, &jwtCookieVal);
