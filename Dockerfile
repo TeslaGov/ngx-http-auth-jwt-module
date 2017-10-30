@@ -48,7 +48,7 @@ RUN wget https://github.com/benmcollins/libjwt/archive/v$LIBJWT_VERSION.zip && \
 ARG TESLA_REPO_NAME=ngx-http-auth-jwt-module
 # ARG TESLA_REPO_URL_PREFIX=joefitz/
 # ARG TESLA_REPO_FILE_PREFIX=joefitz-
-# ARG TESLA_REPO_FILENAME=match-rh-nginx110-version
+# ARG TESLA_REPO_FILENAME=validate-authorization-header
 ARG TESLA_REPO_URL_PREFIX=
 ARG TESLA_REPO_FILE_PREFIX=
 ARG TESLA_REPO_FILENAME=master
