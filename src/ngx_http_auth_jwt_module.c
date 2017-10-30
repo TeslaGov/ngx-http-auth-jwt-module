@@ -23,6 +23,7 @@ static char * ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, voi
 static int hex_char_to_binary( char ch, char* ret );
 static int hex_to_binary( const char* str, u_char* buf, int len );
 static char * ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t str);
+static ngx_table_elt_t* search_headers_in(ngx_http_request_t *r, u_char *name, size_t len);
 
 static ngx_command_t ngx_http_auth_jwt_commands[] = {
 
@@ -109,8 +110,16 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 //			jwtcf->auth_jwt_key.data, 
 //			jwtcf->auth_jwt_enabled);
 	
-//	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "authorization header %s", r->headers_in.authorization);
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "authorization header");
+	ngx_table_elt_t *h;
+	ngx_str_t authorizationHeaderName = ngx_string("Authorization");
+	h = search_headers_in(&r, authorizationHeaderName.data, authorizationHeaderName.len);
+	if (h != NULL)
+	{
+		char* authvalue = ngx_str_t_to_char_ptr(r->pool, h.value);
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "authorization header %s", authvalue);
+	}
+
+	
 
 	// get the cookie
 	// TODO: the cookie name could be passed in dynamicallly
@@ -364,4 +373,54 @@ static char* ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t str)
 	return char_ptr;
 }
 
+static ngx_table_elt_t* search_headers_in(ngx_http_request_t *r, u_char *name, size_t len)
+{
+	ngx_list_part_t            *part;
+	ngx_table_elt_t            *h;
+	ngx_uint_t                  i;
+
+	/*
+	Get the first part of the list. There is usual only one part.
+	*/
+	part = &r->headers_in.headers.part;
+	h = part->elts;
+
+	/* Headers list array may consist of more than one part,
+	* so loop through all of it
+	*/
+	for (i = 0; /* void */ ; i++)
+	{
+		if (i >= part->nelts)
+		{
+			if (part->next == NULL)
+			{
+				/* The last part, search is done. */
+				break;
+			}
+
+			part = part->next;
+			h = part->elts;
+			i = 0;
+		}
+
+		/*
+		* Just compare the lengths and then the names case insensitively.
+		*/
+		if (len != h[i].key.len || ngx_strcasecmp(name, h[i].key.data) != 0)
+		{
+			/* This header doesn't match. */
+			continue;
+		}
+
+		/*
+		* a-da, we got one!
+		* Note, we'v stop the search at the first matched header
+		* while more then one header may fit.
+		*/
+		return &h[i];
+	}
+
+	/* No headers was found */
+	return NULL;
+}
 
