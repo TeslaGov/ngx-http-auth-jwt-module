@@ -14,6 +14,7 @@ typedef struct {
 	ngx_str_t   auth_jwt_loginurl;
 	ngx_str_t   auth_jwt_key;
 	ngx_flag_t  auth_jwt_enabled;
+	ngx_flag_t  auth_jwt_redirect;
 } ngx_http_auth_jwt_loc_conf_t;
 
 static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf);
@@ -46,6 +47,13 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
 		ngx_conf_set_flag_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_enabled),
+		NULL },
+
+	{ ngx_string("auth_jwt_redirect"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+		ngx_conf_set_flag_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_redirect),
 		NULL },
 
 	ngx_null_command
@@ -272,7 +280,14 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			r->headers_out.location->value.data = jwtcf->auth_jwt_loginurl.data;
 		}
 
-		return NGX_HTTP_MOVED_TEMPORARILY;
+        if (jwtcf->auth_jwt_redirect)
+        {
+    		return NGX_HTTP_MOVED_TEMPORARILY;
+        }
+        else
+        {
+    		return NGX_HTTP_UNAUTHORIZED;
+        }
 }
 
 
@@ -308,6 +323,7 @@ ngx_http_auth_jwt_create_loc_conf(ngx_conf_t *cf)
 	
 	// set the flag to unset
 	conf->auth_jwt_enabled = (ngx_flag_t) -1;
+	conf->auth_jwt_redirect = (ngx_flag_t) -1;
 
 	ngx_conf_log_error(NGX_LOG_DEBUG, cf, 0, "Created Location Configuration");
 	
@@ -324,11 +340,15 @@ ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 	ngx_conf_merge_str_value(conf->auth_jwt_loginurl, prev->auth_jwt_loginurl, "");
 	ngx_conf_merge_str_value(conf->auth_jwt_key, prev->auth_jwt_key, "");
 	
-	
 	if (conf->auth_jwt_enabled == ((ngx_flag_t) -1)) 
 	{
 		conf->auth_jwt_enabled = (prev->auth_jwt_enabled == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_enabled;
 	}
+
+    if (conf->auth_jwt_redirect == ((ngx_flag_t) -1))
+    {
+		conf->auth_jwt_redirect = (prev->auth_jwt_redirect == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_redirect;
+    }
 	
 	ngx_conf_log_error(NGX_LOG_DEBUG, cf, 0, "Merged Location Configuration");
 
