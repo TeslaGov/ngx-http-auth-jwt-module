@@ -121,7 +121,15 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 //	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Key: %s, Enabled: %d", 
 //			jwtcf->auth_jwt_key.data, 
 //			jwtcf->auth_jwt_enabled);
-	
+
+	// If request URI ends with "/rampart", it's a login page, so no JWT necessary.
+	if (r->uri.data &&
+		((r->uri.len >= 8 && !ngx_strncmp(r->uri.data + r->uri.len - 8, "/rampart", 8)) ||
+		 (r->uri.len >= 9 && !ngx_strncmp(r->uri.data + r->uri.len - 9, "/rampart/", 9))))
+	{
+		ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "Skipping JWT check for Rampart login page");
+		return NGX_OK;
+	}
 
 	// get the cookie
 	// TODO: the cookie name could be passed in dynamicallly
