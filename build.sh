@@ -43,7 +43,7 @@ fi
 
 TEST_SECURE_NO_REDIRECT_EXPECT_401=`curl -X GET -o /dev/null --silent --head --write-out '%{http_code}\n' http://${MACHINE_IP}:8000/secure-no-redirect/index.html`
 if [ "$TEST_SECURE_NO_REDIRECT_EXPECT_401" -eq "401" ];then
-  echo -e "${GREEN}Secure test with jwt and auth header pass ${TEST_SECURE_NO_REDIRECT_EXPECT_401}${NONE}";
+  echo -e "${GREEN}Secure test without jwt no redirect pass ${TEST_SECURE_NO_REDIRECT_EXPECT_401}${NONE}";
 else
-  echo -e "${RED}Secure test with jwt and auth header fail ${TEST_SECURE_NO_REDIRECT_EXPECT_401}${NONE}";
+  echo -e "${RED}Secure test without jwt no redirect fail ${TEST_SECURE_NO_REDIRECT_EXPECT_401}${NONE}";
 fi
