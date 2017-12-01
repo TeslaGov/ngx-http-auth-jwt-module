@@ -2,7 +2,7 @@ FROM centos:7
 
 LABEL maintainer="TeslaGov" email="developers@teslagov.com"
 
-ARG NGINX_VERSION=1.10.2
+ARG NGINX_VERSION=1.12.2
 
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
