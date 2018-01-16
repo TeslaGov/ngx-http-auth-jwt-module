@@ -47,17 +47,19 @@ RUN wget https://github.com/benmcollins/libjwt/archive/v$LIBJWT_VERSION.zip && \
 
 # get our JWT module
 # change this to get a specific version?
-ARG TESLA_REPO_NAME=ngx-http-auth-jwt-module
+#ARG TESLA_REPO_NAME=ngx-http-auth-jwt-module
 # ARG TESLA_REPO_URL_PREFIX=joefitz/
 # ARG TESLA_REPO_FILE_PREFIX=joefitz-
 # ARG TESLA_REPO_FILENAME=validate-authorization-header
-ARG TESLA_REPO_URL_PREFIX=
-ARG TESLA_REPO_FILE_PREFIX=
-ARG TESLA_REPO_FILENAME=master
-ADD https://github.com/TeslaGov/$TESLA_REPO_NAME/archive/${TESLA_REPO_URL_PREFIX}${TESLA_REPO_FILENAME}.zip .
-RUN unzip ${TESLA_REPO_FILENAME}.zip && \
-	rm ${TESLA_REPO_FILENAME}.zip && \
-	ln -sf ${TESLA_REPO_NAME}-${TESLA_REPO_FILE_PREFIX}${TESLA_REPO_FILENAME} ${TESLA_REPO_NAME}
+#ARG TESLA_REPO_URL_PREFIX=
+#ARG TESLA_REPO_FILE_PREFIX=
+#ARG TESLA_REPO_FILENAME=master
+#ADD https://github.com/TeslaGov/$TESLA_REPO_NAME/archive/${TESLA_REPO_URL_PREFIX}${TESLA_REPO_FILENAME}.zip .
+#RUN unzip ${TESLA_REPO_FILENAME}.zip && \
+#	rm ${TESLA_REPO_FILENAME}.zip && \
+#	ln -sf ${TESLA_REPO_NAME}-${TESLA_REPO_FILE_PREFIX}${TESLA_REPO_FILENAME} ${TESLA_REPO_NAME}
+
+ADD . /root/dl/ngx-http-auth-jwt-module
 
 # after 1.11.5 use this command
 # ./configure --with-compat --add-dynamic-module=../ngx-http-auth-jwt-module --with-cc-opt='-std=gnu99'
@@ -99,5 +101,6 @@ COPY resources/test-jwt-nginx.conf /etc/nginx/conf.d/test-jwt-nginx.conf
 RUN cp -r /usr/share/nginx/html /usr/share/nginx/secure
 
 ENTRYPOINT ["/usr/sbin/nginx"]
+#ENTRYPOINT ["while true; do echo hello world; sleep 1; done"]
 
 EXPOSE 8000
