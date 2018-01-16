@@ -24,7 +24,9 @@ static char * ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, voi
 static int hex_char_to_binary( char ch, char* ret );
 static int hex_to_binary( const char* str, u_char* buf, int len );
 static char * ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t str);
+static ngx_str_t ngx_char_ptr_to_str_t(ngx_pool_t *pool, char* char_ptr);
 static ngx_table_elt_t* search_headers_in(ngx_http_request_t *r, u_char *name, size_t len);
+static ngx_int_t set_custom_header_in_headers_out(ngx_http_request_t *r, ngx_str_t *key, ngx_str_t *value);
 
 static ngx_command_t ngx_http_auth_jwt_commands[] = {
 
@@ -98,6 +100,8 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	ngx_str_t jwtCookieName = ngx_string("rampartjwt");
 	ngx_str_t passportKeyCookieName = ngx_string("PassportKey");
 	ngx_str_t authorizationHeaderName = ngx_string("Authorization");
+	ngx_str_t useridHeaderName = ngx_string("x-userid");
+	ngx_str_t emailHeaderName = ngx_string("x-email");
 	ngx_int_t n;
 	ngx_str_t jwtCookieVal;
 	char* jwtCookieValChrPtr;
@@ -107,6 +111,10 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	jwt_t *jwt;
 	int jwtParseReturnCode;
 	jwt_alg_t alg;
+	const char* sub;
+	const char* email;
+	ngx_str_t sub_t;
+	ngx_str_t email_t;
 	time_t exp;
 	time_t now;
 	ngx_table_elt_t *authorizationHeader;
@@ -195,6 +203,23 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			goto redirect;
 		}
 	}
+
+	// extract the userid
+	sub = jwt_get_grant(jwt, "sub");
+	if (sub == NULL)
+	{
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the jwt does not contain a subject");
+	}
+	sub_t = ngx_char_ptr_to_str_t(r->pool, (char *)sub);
+	set_custom_header_in_headers_out(r, &useridHeaderName, &sub_t);
+
+	email = jwt_get_grant(jwt, "emailAddress");
+	if (email == NULL)
+	{
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the jwt does not contain an email address");
+	}
+	email_t = ngx_char_ptr_to_str_t(r->pool, (char *)email);
+	set_custom_header_in_headers_out(r, &emailHeaderName, &email_t);
 
 	return NGX_OK;
 	
@@ -406,6 +431,22 @@ static char* ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t str)
 	return char_ptr;
 }
 
+/** copies a character pointer string to an nginx string structure */
+static ngx_str_t ngx_char_ptr_to_str_t(ngx_pool_t *pool, char* char_ptr)
+{
+	int len = strlen(char_ptr);
+
+	ngx_str_t str_t;
+	str_t.data = ngx_palloc(pool, len);
+	ngx_memcpy(str_t.data, char_ptr, len);
+	str_t.len = len;
+	return str_t;
+}
+
+/**
+ * Sample code from nginx.
+ * https://www.nginx.com/resources/wiki/start/topics/examples/headers_management/?highlight=http%20settings
+ */
 static ngx_table_elt_t* search_headers_in(ngx_http_request_t *r, u_char *name, size_t len)
 {
 	ngx_list_part_t            *part;
@@ -449,5 +490,38 @@ static ngx_table_elt_t* search_headers_in(ngx_http_request_t *r, u_char *name, s
 
 	/* No headers was found */
 	return NULL;
+}
+
+/**
+ * Sample code from nginx
+ * https://www.nginx.com/resources/wiki/start/topics/examples/headers_management/#how-can-i-set-a-header
+ */
+static ngx_int_t set_custom_header_in_headers_out(ngx_http_request_t *r, ngx_str_t *key, ngx_str_t *value) {
+    ngx_table_elt_t   *h;
+
+    /*
+    All we have to do is just to allocate the header...
+    */
+    h = ngx_list_push(&r->headers_out.headers);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
+    /*
+    ... setup the header key ...
+    */
+    h->key = *key;
+
+    /*
+    ... and the value.
+    */
+    h->value = *value;
+
+    /*
+    Mark the header as not deleted.
+    */
+    h->hash = 1;
+
+    return NGX_OK;
 }
 
