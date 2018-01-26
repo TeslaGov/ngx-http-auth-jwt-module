@@ -7,6 +7,8 @@ CONTAINER_ID=$(docker run --name "${DOCKER_IMAGE_NAME}-cont" -d -p 8000:8000 ${D
 
 MACHINE_IP=`docker-machine ip`
 
+docker cp ${CONTAINER_ID}:/usr/lib64/nginx/modules/ngx_http_auth_jwt_module.so .
+
 RED='\033[01;31m'
 GREEN='\033[01;32m'
 NONE='\033[00m'
