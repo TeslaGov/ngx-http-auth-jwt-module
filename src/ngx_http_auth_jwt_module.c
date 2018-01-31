@@ -25,7 +25,6 @@ static int hex_char_to_binary( char ch, char* ret );
 static int hex_to_binary( const char* str, u_char* buf, int len );
 static char * ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t str);
 static ngx_str_t ngx_char_ptr_to_str_t(ngx_pool_t *pool, char* char_ptr);
-static ngx_table_elt_t* search_headers_in(ngx_http_request_t *r, u_char *name, size_t len);
 static ngx_int_t set_custom_header_in_headers_out(ngx_http_request_t *r, ngx_str_t *key, ngx_str_t *value);
 
 static ngx_command_t ngx_http_auth_jwt_commands[] = {
@@ -95,11 +94,8 @@ ngx_module_t ngx_http_auth_jwt_module = {
 
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 {
-	static const int BEARER_LEN = 7; // strlen("Bearer ");
-	
 	ngx_str_t jwtCookieName = ngx_string("rampartjwt");
 	ngx_str_t passportKeyCookieName = ngx_string("PassportKey");
-	ngx_str_t authorizationHeaderName = ngx_string("Authorization");
 	ngx_str_t useridHeaderName = ngx_string("x-userid");
 	ngx_str_t emailHeaderName = ngx_string("x-email");
 	ngx_int_t n;
@@ -117,7 +113,6 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	ngx_str_t email_t;
 	time_t exp;
 	time_t now;
-	ngx_table_elt_t *authorizationHeader;
 	
 	jwtcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
 	
@@ -183,25 +178,6 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	{
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the jwt has expired");
 		goto redirect;
-	}
-	
-	// if an Authorization header exists, it must match the cookie
-	authorizationHeader = search_headers_in(r, authorizationHeaderName.data, authorizationHeaderName.len);
-	if (authorizationHeader != NULL)
-	{
-		// compare lengths first
-		if (authorizationHeader->value.len != jwtCookieVal.len + BEARER_LEN)
-		{
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Authorization and Cookie do not match lengths");
-			goto redirect;
-		}
-
-		// compare content
-		if (0 != strncmp((const char *)(authorizationHeader->value.data + BEARER_LEN), (const char *)jwtCookieVal.data, jwtCookieVal.len)) 
-		{
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Authorization and Cookie do not match content");
-			goto redirect;
-		}
 	}
 
 	// extract the userid
@@ -443,54 +419,6 @@ static ngx_str_t ngx_char_ptr_to_str_t(ngx_pool_t *pool, char* char_ptr)
 	return str_t;
 }
 
-/**
- * Sample code from nginx.
- * https://www.nginx.com/resources/wiki/start/topics/examples/headers_management/?highlight=http%20settings
- */
-static ngx_table_elt_t* search_headers_in(ngx_http_request_t *r, u_char *name, size_t len)
-{
-	ngx_list_part_t            *part;
-	ngx_table_elt_t            *h;
-	ngx_uint_t                  i;
-
-	// Get the first part of the list. There is usual only one part.
-	part = &r->headers_in.headers.part;
-	h = part->elts;
-
-	// Headers list array may consist of more than one part, so loop through all of it
-	for (i = 0; /* void */ ; i++)
-	{
-		if (i >= part->nelts)
-		{
-			if (part->next == NULL)
-			{
-				/* The last part, search is done. */
-				break;
-			}
-
-			part = part->next;
-			h = part->elts;
-			i = 0;
-		}
-
-		//Just compare the lengths and then the names case insensitively.
-		if (len != h[i].key.len || ngx_strcasecmp(name, h[i].key.data) != 0)
-		{
-			/* This header doesn't match. */
-			continue;
-		}
-
-		/*
-		* Ta-da, we got one!
-		* Note, we've stopped the search at the first matched header
-		* while more then one header may match.
-		*/
-		return &h[i];
-	}
-
-	/* No headers was found */
-	return NULL;
-}
 
 /**
  * Sample code from nginx
