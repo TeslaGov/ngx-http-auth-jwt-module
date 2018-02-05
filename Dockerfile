@@ -99,6 +99,8 @@ RUN wget http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz && \
 COPY resources/nginx.conf /etc/nginx/nginx.conf
 COPY resources/test-jwt-nginx.conf /etc/nginx/conf.d/test-jwt-nginx.conf
 RUN cp -r /usr/share/nginx/html /usr/share/nginx/secure
+RUN cp -r /usr/share/nginx/html /usr/share/nginx/secure-auth-header
+RUN cp -r /usr/share/nginx/html /usr/share/nginx/secure-no-redirect
 
 ENTRYPOINT ["/usr/sbin/nginx"]
 #ENTRYPOINT ["while true; do echo hello world; sleep 1; done"]
