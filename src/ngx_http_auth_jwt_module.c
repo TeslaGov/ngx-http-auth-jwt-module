@@ -1,6 +1,10 @@
 /*
- * Tesla Government
- * @author joefitz
+ * Copyright (C) 2018 Tesla Government
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file for details.
+ *
+ * https://github.com/TeslaGov/ngx-http-auth-jwt-module
  */
 
 #include <ngx_config.h>
@@ -10,22 +14,24 @@
 
 #include <jansson.h>
 
+#include "ngx_http_auth_jwt_header_processing.h"
+#include "ngx_http_auth_jwt_binary_converters.h"
+#include "ngx_http_auth_jwt_string.h"
+
 typedef struct {
-	ngx_str_t   auth_jwt_loginurl;
-	ngx_str_t   auth_jwt_key;
-	ngx_flag_t  auth_jwt_enabled;
-	ngx_flag_t  auth_jwt_redirect;
+	ngx_str_t    auth_jwt_loginurl;
+	ngx_str_t    auth_jwt_key;
+	ngx_flag_t   auth_jwt_enabled;
+	ngx_flag_t   auth_jwt_redirect;
+	ngx_str_t    auth_jwt_validation_type;
+
 } ngx_http_auth_jwt_loc_conf_t;
 
 static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf);
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r);
 static void * ngx_http_auth_jwt_create_loc_conf(ngx_conf_t *cf);
 static char * ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
-static int hex_char_to_binary( char ch, char* ret );
-static int hex_to_binary( const char* str, u_char* buf, int len );
-static char * ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t str);
-static ngx_str_t ngx_char_ptr_to_str_t(ngx_pool_t *pool, char* char_ptr);
-static ngx_int_t set_custom_header_in_headers_out(ngx_http_request_t *r, ngx_str_t *key, ngx_str_t *value);
+static char * getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type);
 
 static ngx_command_t ngx_http_auth_jwt_commands[] = {
 
@@ -55,6 +61,13 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
 		ngx_conf_set_flag_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_redirect),
+		NULL },
+
+	{ ngx_string("auth_jwt_validation_type"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_validation_type),
 		NULL },
 
 	ngx_null_command
@@ -94,12 +107,8 @@ ngx_module_t ngx_http_auth_jwt_module = {
 
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 {
-	ngx_str_t jwtCookieName = ngx_string("rampartjwt");
-	ngx_str_t passportKeyCookieName = ngx_string("PassportKey");
 	ngx_str_t useridHeaderName = ngx_string("x-userid");
 	ngx_str_t emailHeaderName = ngx_string("x-email");
-	ngx_int_t n;
-	ngx_str_t jwtCookieVal;
 	char* jwtCookieValChrPtr;
 	char* return_url;
 	ngx_http_auth_jwt_loc_conf_t *jwtcf;
@@ -121,29 +130,12 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		return NGX_DECLINED;
 	}
 	
-//	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Key: %s, Enabled: %d", 
-//			jwtcf->auth_jwt_key.data, 
-//			jwtcf->auth_jwt_enabled);
-	
-
-	// get the cookie
-	// TODO: the cookie name could be passed in dynamicallly
-	n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &jwtCookieName, &jwtCookieVal);
-	if (n == NGX_DECLINED) 
+	jwtCookieValChrPtr = getJwt(r, jwtcf->auth_jwt_validation_type);
+	if (jwtCookieValChrPtr == NULL)
 	{
-		// if we can't find the first cookie, check the legacy location
-		n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &passportKeyCookieName, &jwtCookieVal);
-		if (n == NGX_DECLINED)
-		{
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a jwt");
-			goto redirect;
-		}
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a jwt");
+		goto redirect;
 	}
-	
-	// the cookie data is not necessarily null terminated... we need a null terminated character pointer
-	jwtCookieValChrPtr = ngx_str_t_to_char_ptr(r->pool, jwtCookieVal);
-
-//	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "rampartjwt: %s %d", jwtCookieValChrPtr, jwtCookieVal.len);
 	
 	// convert key from hex to binary
 	keyBinary = ngx_palloc(r->pool, jwtcf->auth_jwt_key.len / 2);
@@ -160,8 +152,6 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to parse jwt");
 		goto redirect;
 	}
-	
-//	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "parsed jwt:\n%s", jwt_dump_str(jwt, 1));
 	
 	// validate the algorithm
 	alg = jwt_get_alg(jwt);
@@ -281,14 +271,14 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			r->headers_out.location->value.data = jwtcf->auth_jwt_loginurl.data;
 		}
 
-        if (jwtcf->auth_jwt_redirect)
-        {
-    		return NGX_HTTP_MOVED_TEMPORARILY;
-        }
-        else
-        {
-    		return NGX_HTTP_UNAUTHORIZED;
-        }
+		if (jwtcf->auth_jwt_redirect)
+		{
+			return NGX_HTTP_MOVED_TEMPORARILY;
+		}
+		else
+		{
+			return NGX_HTTP_UNAUTHORIZED;
+		}
 }
 
 
@@ -340,116 +330,65 @@ ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 
 	ngx_conf_merge_str_value(conf->auth_jwt_loginurl, prev->auth_jwt_loginurl, "");
 	ngx_conf_merge_str_value(conf->auth_jwt_key, prev->auth_jwt_key, "");
+	ngx_conf_merge_str_value(conf->auth_jwt_validation_type, prev->auth_jwt_validation_type, "");
 	
 	if (conf->auth_jwt_enabled == ((ngx_flag_t) -1)) 
 	{
 		conf->auth_jwt_enabled = (prev->auth_jwt_enabled == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_enabled;
 	}
 
-    if (conf->auth_jwt_redirect == ((ngx_flag_t) -1))
-    {
+	if (conf->auth_jwt_redirect == ((ngx_flag_t) -1))
+	{
 		conf->auth_jwt_redirect = (prev->auth_jwt_redirect == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_redirect;
-    }
-	
-	ngx_conf_log_error(NGX_LOG_DEBUG, cf, 0, "Merged Location Configuration");
+	}
 
-//	ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "Key: %s, Enabled: %d", 
-//			conf->auth_jwt_key.data, 
-//			conf->auth_jwt_enabled);
 	return NGX_CONF_OK;
 }
 
-static int
-hex_char_to_binary( char ch, char* ret )
+static char * getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type)
 {
-	ch = tolower( ch );
-	if( isdigit( ch ) )
-		*ret = ch - '0';
-	else if( ch >= 'a' && ch <= 'f' )
-		*ret = ( ch - 'a' ) + 10;
-	else if( ch >= 'A' && ch <= 'F' )
-		*ret = ( ch - 'A' ) + 10;
-	else
-		return *ret = 0;
-	return 1;
-}
+	static const ngx_str_t authorizationHeaderName = ngx_string("Authorization");
+	ngx_table_elt_t *authorizationHeader;
+	char* jwtCookieValChrPtr = NULL;
+	ngx_str_t jwtCookieVal;
+	ngx_int_t n;
+	ngx_str_t authorizationHeaderStr;
 
-static int
-hex_to_binary( const char* str, u_char* buf, int len ) 
-{
-	u_char	
-		*cpy = buf;
-	char
-		low,
-		high;
-	int
-		odd = len % 2;
-	
-	if (odd) {
-		return -1;
+	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "auth_jwt_validation_type.len %d", auth_jwt_validation_type.len);
+
+	if (auth_jwt_validation_type.len == 0 || (auth_jwt_validation_type.len == sizeof("AUTHORIZATION") - 1 && ngx_strncmp(auth_jwt_validation_type.data, "AUTHORIZATION", sizeof("AUTHORIZATION") - 1)==0))
+	{
+		// using authorization header
+		authorizationHeader = search_headers_in(r, authorizationHeaderName.data, authorizationHeaderName.len);
+		if (authorizationHeader != NULL)
+		{
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Found authorization header len %d", authorizationHeader->value.len);
+
+			authorizationHeaderStr.data = authorizationHeader->value.data + sizeof("Bearer ") - 1;
+			authorizationHeaderStr.len = authorizationHeader->value.len - (sizeof("Bearer ") - 1);
+
+			jwtCookieValChrPtr = ngx_str_t_to_char_ptr(r->pool, authorizationHeaderStr);
+
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Authorization header: %s", jwtCookieValChrPtr);
+		}
+	}
+	else if (auth_jwt_validation_type.len > sizeof("COOKIE=") && ngx_strncmp(auth_jwt_validation_type.data, "COOKIE=", sizeof("COOKIE=") - 1)==0)
+	{
+		auth_jwt_validation_type.data += sizeof("COOKIE=") - 1;
+		auth_jwt_validation_type.len -= sizeof("COOKIE=") - 1;
+
+		// get the cookie
+		// TODO: the cookie name could be passed in dynamicallly
+		n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &auth_jwt_validation_type, &jwtCookieVal);
+		if (n != NGX_DECLINED) 
+		{
+			jwtCookieValChrPtr = ngx_str_t_to_char_ptr(r->pool, jwtCookieVal);
+		}
 	}
 
-	for (int i = 0; i < len; i += 2) {
-		hex_char_to_binary( *(str + i), &high );
-		hex_char_to_binary( *(str + i + 1 ), &low );
-		
-		*cpy++ = low | (high << 4);
-	}
-	return 0;
-}
-
-/** copies an nginx string structure to a newly allocated character pointer */
-static char* ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t str)
-{
-	char* char_ptr = ngx_palloc(pool, str.len + 1);
-	ngx_memcpy(char_ptr, str.data, str.len);
-	*(char_ptr + str.len) = '\0';
-	return char_ptr;
-}
-
-/** copies a character pointer string to an nginx string structure */
-static ngx_str_t ngx_char_ptr_to_str_t(ngx_pool_t *pool, char* char_ptr)
-{
-	int len = strlen(char_ptr);
-
-	ngx_str_t str_t;
-	str_t.data = ngx_palloc(pool, len);
-	ngx_memcpy(str_t.data, char_ptr, len);
-	str_t.len = len;
-	return str_t;
+	return jwtCookieValChrPtr;
 }
 
 
-/**
- * Sample code from nginx
- * https://www.nginx.com/resources/wiki/start/topics/examples/headers_management/#how-can-i-set-a-header
- */
-static ngx_int_t set_custom_header_in_headers_out(ngx_http_request_t *r, ngx_str_t *key, ngx_str_t *value) {
-    ngx_table_elt_t   *h;
 
-    /*
-    All we have to do is just to allocate the header...
-    */
-    h = ngx_list_push(&r->headers_out.headers);
-    if (h == NULL) {
-        return NGX_ERROR;
-    }
-
-    /*
-    ... setup the header key ...
-    */
-    h->key = *key;
-
-    /*
-    ... and the value.
-    */
-    h->value = *value;
-
-    /*
-    Mark the header as not deleted.
-    */
-    h->hash = 1;
-
-    return NGX_OK;
-}
 
