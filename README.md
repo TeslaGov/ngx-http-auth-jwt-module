@@ -15,7 +15,18 @@ auth_jwt_loginurl "https://yourdomain.com/loginpage";
 auth_jwt_enabled on;
 ```
 
-So, a typical use would be to specify the key and loginurl on the main level and then only turn on the locations that you want to secure (not the login page).
+So, a typical use would be to specify the key and loginurl on the main level and then only turn on the locations that you want to secure (not the login page).  Unauthorized requests are given 302 "Moved Temporarily" responses with a location of the specified loginurl.
+
+```
+auth_jwt_redirect            off;
+```
+If you prefer to return 401 Unauthorized, you may turn `auth_jwt_redirect` off.
+
+```
+auth_jwt_validation_type AUTHORIZATION;
+auth_jwt_validation_type COOKIE=rampartjwt;
+```
+By default the authorization header is used to provide a JWT for validation.  However, you may use the `auth_jwt_validation_type` configuration to specify the name of a cookie that provides the JWT.
 
 The Dockerfile builds all of the dependencies as well as the module, downloads a binary version of nginx, and runs the module as a dynamic module.
 
