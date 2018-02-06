@@ -50,7 +50,7 @@ else
 fi
 
 TEST_SECURE_HEADER_EXPECT_302=`curl -X GET -o /dev/null --silent --head --write-out '%{http_code}\n' http://${MACHINE_IP}:8000/secure-auth-header/index.html -H 'cache-control: no-cache'`
-if [ "$TEST_SECURE_HEADER_EXPECT_302" -eq "200" ];then
+if [ "$TEST_SECURE_HEADER_EXPECT_302" -eq "302" ];then
   echo -e "${GREEN}Secure test without jwt auth header pass ${TEST_SECURE_HEADER_EXPECT_302}${NONE}";
 else
   echo -e "${RED}Secure test without jwt auth header fail ${TEST_SECURE_HEADER_EXPECT_302}${NONE}";
