@@ -213,7 +213,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		set_custom_header_in_headers_out(r, &useridHeaderName, &sub_t);
 	}
 
-	if (jwtcf->auth_jwt_validate_email == NULL || !jwtcf->auth_jwt_validate_email)
+	if (jwtcf->auth_jwt_validate_email == NULL || jwtcf->auth_jwt_validate_email)
 	{
 		email = jwt_get_grant(jwt, "emailAddress");
 		if (email == NULL)
