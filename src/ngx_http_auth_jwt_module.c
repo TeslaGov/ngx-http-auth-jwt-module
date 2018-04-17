@@ -23,7 +23,7 @@ typedef struct {
 	ngx_str_t    auth_jwt_key;
 	ngx_flag_t   auth_jwt_enabled;
 	ngx_flag_t   auth_jwt_redirect;
-	ngx_flag_t   auth_jwt_email_validation;
+	ngx_flag_t   auth_jwt_validate_email;
 	ngx_str_t    auth_jwt_validation_type;
 	ngx_str_t    auth_jwt_algorithm;
 
@@ -65,11 +65,11 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
 		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_redirect),
 		NULL },
 
-	{ ngx_string("auth_jwt_email_validation"),
+	{ ngx_string("auth_jwt_validate_email"),
 		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
 		ngx_conf_set_flag_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_email_validation),
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_validate_email),
 		NULL },
 
 	{ ngx_string("auth_jwt_validation_type"),
@@ -213,7 +213,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		set_custom_header_in_headers_out(r, &useridHeaderName, &sub_t);
 	}
 
-	if (jwtcf->auth_jwt_email_validation == NULL || !jwtcf->auth_jwt_email_validation)
+	if (jwtcf->auth_jwt_validate_email == NULL || !jwtcf->auth_jwt_validate_email)
 	{
 		email = jwt_get_grant(jwt, "emailAddress");
 		if (email == NULL)
@@ -355,6 +355,7 @@ ngx_http_auth_jwt_create_loc_conf(ngx_conf_t *cf)
 	// set the flag to unset
 	conf->auth_jwt_enabled = (ngx_flag_t) -1;
 	conf->auth_jwt_redirect = (ngx_flag_t) -1;
+	conf->auth_jwt_validate_email = (ngx_flag_t) -1;
 
 	ngx_conf_log_error(NGX_LOG_DEBUG, cf, 0, "Created Location Configuration");
 	
@@ -371,6 +372,7 @@ ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 	ngx_conf_merge_str_value(conf->auth_jwt_loginurl, prev->auth_jwt_loginurl, "");
 	ngx_conf_merge_str_value(conf->auth_jwt_key, prev->auth_jwt_key, "");
 	ngx_conf_merge_str_value(conf->auth_jwt_validation_type, prev->auth_jwt_validation_type, "");
+	ngx_conf_merge_str_value(conf->auth_jwt_algorithm, prev->auth_jwt_algorithm, "");
 	
 	if (conf->auth_jwt_enabled == ((ngx_flag_t) -1)) 
 	{
@@ -380,6 +382,11 @@ ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 	if (conf->auth_jwt_redirect == ((ngx_flag_t) -1))
 	{
 		conf->auth_jwt_redirect = (prev->auth_jwt_redirect == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_redirect;
+	}
+
+	if (conf->auth_jwt_validate_email == ((ngx_flag_t) -1)) 
+	{
+		conf->auth_jwt_validate_email = (prev->auth_jwt_validate_email == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_validate_email;
 	}
 
 	return NGX_CONF_OK;
