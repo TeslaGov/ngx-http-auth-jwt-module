@@ -152,7 +152,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	auth_jwt_algorithm = jwtcf->auth_jwt_algorithm;
 	if (auth_jwt_algorithm.len == 0 || (auth_jwt_algorithm.len == sizeof("HS256") - 1 && ngx_strncmp(auth_jwt_algorithm.data, "HS256", sizeof("HS256") - 1)==0))
 	{
-		ngx_log_error(NGX_LOG_ERROR, r->connection->log, 0, "got to 0");
+		ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "got to 0");
 		keylen = jwtcf->auth_jwt_key.len / 2;
 		keyBinary = ngx_palloc(r->pool, keylen);
 		if (0 != hex_to_binary((char *)jwtcf->auth_jwt_key.data, keyBinary, jwtcf->auth_jwt_key.len))
@@ -164,14 +164,14 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	else if ( auth_jwt_algorithm.len == sizeof("RS256") - 1 && ngx_strncmp(auth_jwt_algorithm.data, "RS256", sizeof("RS256") - 1) == 0 )
 	{
 		// in this case, 'Binary' is a misnomer, as it is the private key string itself
-		ngx_log_error(NGX_LOG_ERROR, r->connection->log, 0, "got to 1");
+		ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "got to 1");
 		keyBinary = ngx_palloc(r->pool, jwtcf->auth_jwt_key.len);
 		ngx_memcpy(keyBinary, jwtcf->auth_jwt_key.data, jwtcf->auth_jwt_key.len);
 		keylen = jwtcf->auth_jwt_key.len;
 	}
 	
 	// validate the jwt
-	ngx_log_error(NGX_LOG_ERROR, r->connection->log, 0, "trying to decode JWT");
+	ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "trying to decode JWT");
 	jwtParseReturnCode = jwt_decode(&jwt, jwtCookieValChrPtr, keyBinary, keylen);
 
 	if (jwtParseReturnCode != 0)
