@@ -356,7 +356,7 @@ ngx_http_auth_jwt_create_loc_conf(ngx_conf_t *cf)
 	// set the flag to unset
 	conf->auth_jwt_enabled = (ngx_flag_t) -1;
 	conf->auth_jwt_redirect = (ngx_flag_t) -1;
-	// conf->auth_jwt_validate_email = (ngx_flag_t) -1;
+	conf->auth_jwt_validate_email = (ngx_flag_t) -1;
 
 	ngx_conf_log_error(NGX_LOG_DEBUG, cf, 0, "Created Location Configuration");
 	
