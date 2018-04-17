@@ -164,7 +164,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		// in this case, 'Binary' is a misnomer, as it is the private key string itself
 		ngx_log_debug(NGX_LOG_DEBUG, r->connection->log, 0, "got to 1");
 		keyBinary = ngx_palloc(r->pool, jwtcf->auth_jwt_key.len);
-		ngx_str_set(keyBinary, auth_jwt_key.data);
+		ngx_str_set(keyBinary, jwtcf->auth_jwt_key.data);
 	}
 	
 	// validate the jwt
