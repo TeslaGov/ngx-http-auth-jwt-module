@@ -159,7 +159,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			goto redirect;
 		}
 	}
-	else if ( auth_jwt_algorithm.len == sizeof("RS256") - 1 && ngx_strncmp(auth_jwt_algorithm.data, "RS256", sizeof("RS256") - 1) == 0) )
+	else if ( auth_jwt_algorithm.len == sizeof("RS256") - 1 && ngx_strncmp(auth_jwt_algorithm.data, "RS256", sizeof("RS256") - 1) == 0 )
 	{
 		// in this case, 'Binary' is a misnomer, as it is the private key string itself
 		ngx_log_debug(NGX_LOG_DEBUG, r->connection->log, 0, "got to 1");
