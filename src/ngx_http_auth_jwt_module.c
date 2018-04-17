@@ -23,9 +23,9 @@ typedef struct {
 	ngx_str_t    auth_jwt_key;
 	ngx_flag_t   auth_jwt_enabled;
 	ngx_flag_t   auth_jwt_redirect;
+	ngx_flag_t   auth_jwt_email_validation;
 	ngx_str_t    auth_jwt_validation_type;
 	ngx_str_t    auth_jwt_algorithm;
-	ngx_flag_t   auth_jwt_validate_email;
 
 } ngx_http_auth_jwt_loc_conf_t;
 
@@ -65,6 +65,13 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
 		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_redirect),
 		NULL },
 
+	{ ngx_string("auth_jwt_email_validation"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+		ngx_conf_set_flag_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_email_validation),
+		NULL },
+
 	{ ngx_string("auth_jwt_validation_type"),
 		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
@@ -77,13 +84,6 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_algorithm),
-		NULL },
-
-	{ ngx_string("auth_jwt_validate_email"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
-		ngx_conf_set_flag_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_validate_email),
 		NULL },
 
 	ngx_null_command
@@ -213,7 +213,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		set_custom_header_in_headers_out(r, &useridHeaderName, &sub_t);
 	}
 
-	if (jwtcf->auth_jwt_validate_email == NULL || !jwtcf->auth_jwt_validate_email)
+	if (jwtcf->auth_jwt_email_validation == NULL || !jwtcf->auth_jwt_email_validation)
 	{
 		email = jwt_get_grant(jwt, "emailAddress");
 		if (email == NULL)
