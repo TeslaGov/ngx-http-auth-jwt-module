@@ -24,6 +24,8 @@ typedef struct {
 	ngx_flag_t   auth_jwt_enabled;
 	ngx_flag_t   auth_jwt_redirect;
 	ngx_str_t    auth_jwt_validation_type;
+	ngx_str_t    auth_jwt_algorithm;
+	ngx_flag_t   auth_jwt_validate_email;
 
 } ngx_http_auth_jwt_loc_conf_t;
 
@@ -68,6 +70,20 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_validation_type),
+		NULL },
+
+	{ ngx_string("auth_jwt_algorithm"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_algorithm),
+		NULL },
+
+	{ ngx_string("auth_jwt_validate_email"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+		ngx_conf_set_flag_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_validate_email),
 		NULL },
 
 	ngx_null_command
@@ -122,6 +138,8 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	ngx_str_t email_t;
 	time_t exp;
 	time_t now;
+	ngx_str_t auth_jwt_algorithm;
+	int keylen;
 	
 	jwtcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
 	
@@ -137,16 +155,34 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		goto redirect;
 	}
 	
-	// convert key from hex to binary
-	keyBinary = ngx_palloc(r->pool, jwtcf->auth_jwt_key.len / 2);
-	if (0 != hex_to_binary((char *)jwtcf->auth_jwt_key.data, keyBinary, jwtcf->auth_jwt_key.len))
+	// convert key from hex to binary, if a symmetric key
+
+	auth_jwt_algorithm = jwtcf->auth_jwt_algorithm;
+	if (auth_jwt_algorithm.len == 0 || (auth_jwt_algorithm.len == sizeof("HS256") - 1 && ngx_strncmp(auth_jwt_algorithm.data, "HS256", sizeof("HS256") - 1)==0))
 	{
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to turn hex key into binary");
+		keylen = jwtcf->auth_jwt_key.len / 2;
+		keyBinary = ngx_palloc(r->pool, keylen);
+		if (0 != hex_to_binary((char *)jwtcf->auth_jwt_key.data, keyBinary, jwtcf->auth_jwt_key.len))
+		{
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to turn hex key into binary");
+			goto redirect;
+		}
+	}
+	else if ( auth_jwt_algorithm.len == sizeof("RS256") - 1 && ngx_strncmp(auth_jwt_algorithm.data, "RS256", sizeof("RS256") - 1) == 0 )
+	{
+		// in this case, 'Binary' is a misnomer, as it is the public key string itself
+		keyBinary = ngx_palloc(r->pool, jwtcf->auth_jwt_key.len);
+		ngx_memcpy(keyBinary, jwtcf->auth_jwt_key.data, jwtcf->auth_jwt_key.len);
+		keylen = jwtcf->auth_jwt_key.len;
+	}
+	else
+	{
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "unsupported algorithm");
 		goto redirect;
 	}
 	
 	// validate the jwt
-	jwtParseReturnCode = jwt_decode(&jwt, jwtCookieValChrPtr, keyBinary, jwtcf->auth_jwt_key.len / 2);
+	jwtParseReturnCode = jwt_decode(&jwt, jwtCookieValChrPtr, keyBinary, keylen);
 	if (jwtParseReturnCode != 0)
 	{
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to parse jwt");
@@ -155,7 +191,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	
 	// validate the algorithm
 	alg = jwt_get_alg(jwt);
-	if (alg != JWT_ALG_HS256)
+	if (alg != JWT_ALG_HS256 && alg != JWT_ALG_RS256)
 	{
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "invalid algorithm in jwt %d", alg);
 		goto redirect;
@@ -182,15 +218,18 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		set_custom_header_in_headers_out(r, &useridHeaderName, &sub_t);
 	}
 
-	email = jwt_get_grant(jwt, "emailAddress");
-	if (email == NULL)
+	if (jwtcf->auth_jwt_validate_email == 1)
 	{
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the jwt does not contain an email address");
-	}
-	else
-	{
-		email_t = ngx_char_ptr_to_str_t(r->pool, (char *)email);
-		set_custom_header_in_headers_out(r, &emailHeaderName, &email_t);
+		email = jwt_get_grant(jwt, "emailAddress");
+		if (email == NULL)
+		{
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the jwt does not contain an email address");
+		}
+		else
+		{
+			email_t = ngx_char_ptr_to_str_t(r->pool, (char *)email);
+			set_custom_header_in_headers_out(r, &emailHeaderName, &email_t);
+		}
 	}
 
 	return NGX_OK;
@@ -321,6 +360,7 @@ ngx_http_auth_jwt_create_loc_conf(ngx_conf_t *cf)
 	// set the flag to unset
 	conf->auth_jwt_enabled = (ngx_flag_t) -1;
 	conf->auth_jwt_redirect = (ngx_flag_t) -1;
+	conf->auth_jwt_validate_email = (ngx_flag_t) -1;
 
 	ngx_conf_log_error(NGX_LOG_DEBUG, cf, 0, "Created Location Configuration");
 	
@@ -337,6 +377,8 @@ ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 	ngx_conf_merge_str_value(conf->auth_jwt_loginurl, prev->auth_jwt_loginurl, "");
 	ngx_conf_merge_str_value(conf->auth_jwt_key, prev->auth_jwt_key, "");
 	ngx_conf_merge_str_value(conf->auth_jwt_validation_type, prev->auth_jwt_validation_type, "");
+	ngx_conf_merge_str_value(conf->auth_jwt_algorithm, prev->auth_jwt_algorithm, "HS256");
+	ngx_conf_merge_off_value(conf->auth_jwt_validate_email, prev->auth_jwt_validate_email, 1);
 	
 	if (conf->auth_jwt_enabled == ((ngx_flag_t) -1)) 
 	{
@@ -360,7 +402,7 @@ static char * getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type)
 	ngx_int_t n;
 	ngx_str_t authorizationHeaderStr;
 
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "auth_jwt_validation_type.len %d", auth_jwt_validation_type.len);
+	ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "auth_jwt_validation_type.len %d", auth_jwt_validation_type.len);
 
 	if (auth_jwt_validation_type.len == 0 || (auth_jwt_validation_type.len == sizeof("AUTHORIZATION") - 1 && ngx_strncmp(auth_jwt_validation_type.data, "AUTHORIZATION", sizeof("AUTHORIZATION") - 1)==0))
 	{
@@ -368,14 +410,14 @@ static char * getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type)
 		authorizationHeader = search_headers_in(r, authorizationHeaderName.data, authorizationHeaderName.len);
 		if (authorizationHeader != NULL)
 		{
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Found authorization header len %d", authorizationHeader->value.len);
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "Found authorization header len %d", authorizationHeader->value.len);
 
 			authorizationHeaderStr.data = authorizationHeader->value.data + sizeof("Bearer ") - 1;
 			authorizationHeaderStr.len = authorizationHeader->value.len - (sizeof("Bearer ") - 1);
 
 			jwtCookieValChrPtr = ngx_str_t_to_char_ptr(r->pool, authorizationHeaderStr);
 
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Authorization header: %s", jwtCookieValChrPtr);
+			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "Authorization header: %s", jwtCookieValChrPtr);
 		}
 	}
 	else if (auth_jwt_validation_type.len > sizeof("COOKIE=") && ngx_strncmp(auth_jwt_validation_type.data, "COOKIE=", sizeof("COOKIE=") - 1)==0)
