@@ -171,8 +171,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	else if ( auth_jwt_algorithm.len == sizeof("RS256") - 1 && ngx_strncmp(auth_jwt_algorithm.data, "RS256", sizeof("RS256") - 1) == 0 )
 	{
 		// in this case, 'Binary' is a misnomer, as it is the public key string itself
-		keyBinary = ngx_palloc(r->pool, jwtcf->auth_jwt_key.len);
-		ngx_memcpy(keyBinary, jwtcf->auth_jwt_key.data, jwtcf->auth_jwt_key.len);
+		keyBinary = jwtcf->auth_jwt_key.data;
 		keylen = jwtcf->auth_jwt_key.len;
 	}
 	else
