@@ -129,7 +129,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	char* return_url;
 	ngx_http_auth_jwt_loc_conf_t *jwtcf;
 	u_char *keyBinary;
-	jwt_t *jwt;
+	jwt_t *jwt = NULL;
 	int jwtParseReturnCode;
 	jwt_alg_t alg;
 	const char* sub;
@@ -231,9 +231,17 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		}
 	}
 
+	jwt_free(jwt);
+
 	return NGX_OK;
 	
 	redirect:
+
+		if (jwt)
+		{
+			jwt_free(jwt);
+		}
+
 		r->headers_out.location = ngx_list_push(&r->headers_out.headers);
 		
 		if (r->headers_out.location == NULL) 
