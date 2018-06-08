@@ -7,12 +7,8 @@ NONE='\033[00m'
 DOCKER_IMAGE_NAME=jwt-nginx
 CONTAINER_ID=$(docker run --rm --name "${DOCKER_IMAGE_NAME}-cont" -d -p 8000:8000 ${DOCKER_IMAGE_NAME})
 
-if [[ "$OSTYPE" == "darwin"* ]] || [[ "$OSTYPE" == "linux"* ]]; then
-  # Mac OSX / Linux
-  MACHINE_IP='localhost'
-else
-  # Windows
-  MACHINE_IP=`docker-machine ip 2> /dev/null`
+if ! MACHINE_IP=`docker-machine ip 2>/dev/null`; then
+  MACHINE_IP='0.0.0.0' # fix for MacOS
 fi
 
 docker cp ${CONTAINER_ID}:/usr/lib64/nginx/modules/ngx_http_auth_jwt_module.so .
