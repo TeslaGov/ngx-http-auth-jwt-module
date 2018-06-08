@@ -29,7 +29,6 @@ location /secure-location/ {
   error_page  401 = @login_redirect;
 }
 ```
-If you prefer to return 401 Unauthorized, you may turn `auth_jwt_redirect` off.
 
 ```
 auth_jwt_validation_type AUTHORIZATION;
