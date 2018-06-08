@@ -11,16 +11,23 @@ This module requires several new nginx.conf directives, which can be specified i
 
 ```
 auth_jwt_key "00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF";
-auth_jwt_loginurl "https://yourdomain.com/loginpage";
 auth_jwt_enabled on;
 auth_jwt_algorithm HS256; # or RS256
 auth_jwt_validate_email on;  # or off
 ```
 
-So, a typical use would be to specify the key and loginurl on the main level and then only turn on the locations that you want to secure (not the login page).  Unauthorized requests are given 302 "Moved Temporarily" responses with a location of the specified loginurl.
+So, a typical use would be to specify the key on the main level and then only turn on the locations that you want to secure (not the login page).  Unauthorized requests are given 401 "Unauthorized" responses, you can redirect them with the nginx's `error_page` directive.
 
 ```
-auth_jwt_redirect            off;
+location @login_redirect {
+  allow all;
+  return 302 https://yourdomain.com/loginpage;
+}
+
+location /secure-location/ {
+  auth_jwt_enabled   on;
+  error_page  401 = @login_redirect;
+}
 ```
 If you prefer to return 401 Unauthorized, you may turn `auth_jwt_redirect` off.
 
