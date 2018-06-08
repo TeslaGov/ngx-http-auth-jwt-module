@@ -34,7 +34,7 @@ RUN wget https://github.com/akheron/jansson/archive/v$JANSSON_VERSION.zip && \
 	make install
 
 # build libjwt
-ARG LIBJWT_VERSION=1.8.0
+ARG LIBJWT_VERSION=1.9.0
 RUN wget https://github.com/benmcollins/libjwt/archive/v$LIBJWT_VERSION.zip && \
 	unzip v$LIBJWT_VERSION.zip && \
 	rm v$LIBJWT_VERSION.zip && \
