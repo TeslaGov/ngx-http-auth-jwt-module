@@ -147,6 +147,12 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	{
 		return NGX_DECLINED;
 	}
+
+	// pass through options requests without token authentication
+	if (r->method == NGX_HTTP_OPTIONS)
+	{
+		return NGX_DECLINED;
+	}
 	
 	jwtCookieValChrPtr = getJwt(r, jwtcf->auth_jwt_validation_type);
 	if (jwtCookieValChrPtr == NULL)
