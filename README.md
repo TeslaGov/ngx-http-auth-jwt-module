@@ -47,7 +47,24 @@ auth_jwt_algorithm HS256; # or RS256
 auth_jwt_validate_email on;  # or off
 ```
 
-So, a typical use would be to specify the key and loginurl on the main level
+The default algorithm is 'HS256', for symmetric key validation.  When using HS256, the value for `auth_jwt_key` should be specified in binhex format.  It should represent 256 bits of data and so it should be represented by 32 pairs of hex characters which is 64 characters in total as in the example above.
+
+The configuration also supports the `auth_jwt_algorithm` 'RS256', for RSA 256-bit public key validation. If using "auth_jwt_algorithm RS256;", then the `auth_jwt_key` field must be set to your public key.
+That is the public key, rather than a PEM certificate.  I.e.:
+
+```
+auth_jwt_key "-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0aPPpS7ufs0bGbW9+OFQ
+RvJwb58fhi2BuHMd7Ys6m8D1jHW/AhDYrYVZtUnA60lxwSJ/ZKreYOQMlNyZfdqA
+rhYyyUkedDn8e0WsDvH+ocY0cMcxCCN5jItCwhIbIkTO6WEGrDgWTY57UfWDqbMZ
+4lMn42f77OKFoxsOA6CVvpsvrprBPIRPa25H2bJHODHEtDr/H519Y681/eCyeQE/
+1ibKL2cMN49O7nRAAaUNoFcO89Uc+GKofcad1TTwtTIwmSMbCLVkzGeExBCrBTQo
+wO6AxLijfWV/JnVxNMUiobiKGc/PP6T5PI70Uv67Y4FzzWTuhqmREb3/BlcbPwtM
+oQIDAQAB
+-----END PUBLIC KEY-----";
+```
+
+A typical use would be to specify the key and loginurl on the main level
 and then only turn on the locations that you want to secure (not the login page).
 Unauthorized requests are given 302 "Moved Temporarily" responses with a location of the specified loginurl.
 
@@ -63,30 +80,9 @@ auth_jwt_validation_type COOKIE=rampartjwt;
 By default the authorization header is used to provide a JWT for validation.
 However, you may use the `auth_jwt_validation_type` configuration to specify the name of a cookie that provides the JWT.
 
-
-
-The default algorithm is 'HS256', for symmetric key validation.
-Also supported is 'RS256', for RSA 256-bit public key validation.
-
-If using "auth_jwt_algorithm RS256;", then the 'auth_jwt_key' field must be set to your public key.
-That is the public key, rather than a PEM certificate.  I.e.:
-
-```
-auth_jwt_key "-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0aPPpS7ufs0bGbW9+OFQ
-RvJwb58fhi2BuHMd7Ys6m8D1jHW/AhDYrYVZtUnA60lxwSJ/ZKreYOQMlNyZfdqA
-rhYyyUkedDn8e0WsDvH+ocY0cMcxCCN5jItCwhIbIkTO6WEGrDgWTY57UfWDqbMZ
-4lMn42f77OKFoxsOA6CVvpsvrprBPIRPa25H2bJHODHEtDr/H519Y681/eCyeQE/
-1ibKL2cMN49O7nRAAaUNoFcO89Uc+GKofcad1TTwtTIwmSMbCLVkzGeExBCrBTQo
-wO6AxLijfWV/JnVxNMUiobiKGc/PP6T5PI70Uv67Y4FzzWTuhqmREb3/BlcbPwtM
-oQIDAQAB
------END PUBLIC KEY-----";
-```
-
-By default, the module will attempt to validate the email address field of the JWT, then set the x-email header of the
-session, and will log an error if it isn't found.  To disable this behavior, for instance if you are using a different
-user identifier property such as 'sub', set:
-
 ```
 auth_jwt_validate_email off;
 ```
+By default, the module will attempt to validate the email address field of the JWT, then set the x-email header of the
+session, and will log an error if it isn't found.  To disable this behavior, for instance if you are using a different
+user identifier property such as 'sub', set `auth_jwt_validate_email` to the value `off`.
