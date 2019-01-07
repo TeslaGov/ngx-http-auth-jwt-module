@@ -40,7 +40,7 @@ This module requires several new `nginx.conf` directives,
 which can be specified in on the `main` `server` or `location` level.
 
 ```
-auth_jwt_key "00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF";
+auth_jwt_key "00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF"; # see docs for format based on algorithm
 auth_jwt_loginurl "https://yourdomain.com/loginpage";
 auth_jwt_enabled on;
 auth_jwt_algorithm HS256; # or RS256
