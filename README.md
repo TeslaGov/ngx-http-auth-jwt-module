@@ -47,7 +47,7 @@ auth_jwt_algorithm HS256; # or RS256
 auth_jwt_validate_email on;  # or off
 ```
 
-The default algorithm is 'HS256', for symmetric key validation.  When using HS256, the value for `auth_jwt_key` should be specified in binhex format.  It should represent 256 bits of data and so it should be represented by 32 pairs of hex characters which is 64 characters in total as in the example above.
+The default algorithm is 'HS256', for symmetric key validation.  When using HS256, the value for `auth_jwt_key` should be specified in binhex format.  It is recommended to use at least 256 bits of data (32 pairs of hex characters or 64 characters in total) as in the example above.  Note that using more than 512 bits will not increase the security.  For key guidelines please see NIST Special Publication 800-107 Recommendation for Applications Using Approved Hash Algorithms, Section 5.3.2 The HMAC Key.
 
 The configuration also supports the `auth_jwt_algorithm` 'RS256', for RSA 256-bit public key validation. If using "auth_jwt_algorithm RS256;", then the `auth_jwt_key` field must be set to your public key.
 That is the public key, rather than a PEM certificate.  I.e.:
