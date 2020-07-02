@@ -63,19 +63,9 @@ location /secure-location/ {
 }
 ```
 
-```
-auth_jwt_validation_type AUTHORIZATION;
-auth_jwt_validation_type COOKIE=rampartjwt;
-```
-By default the authorization header is used to provide a JWT for validation.
-However, you may use the `auth_jwt_validation_type` configuration to specify the name of a cookie that provides the JWT.
+The default algorithm is 'HS256', for symmetric key validation.  When using HS256, the value for `auth_jwt_key` should be specified in binhex format.  It is recommended to use at least 256 bits of data (32 pairs of hex characters or 64 characters in total) as in the example above.  Note that using more than 512 bits will not increase the security.  For key guidelines please see NIST Special Publication 800-107 Recommendation for Applications Using Approved Hash Algorithms, Section 5.3.2 The HMAC Key.
 
-
-
-The default algorithm is 'HS256', for symmetric key validation.
-Also supported is 'RS256', for RSA 256-bit public key validation.
-
-If using "auth_jwt_algorithm RS256;", then the 'auth_jwt_key' field must be set to your public key.
+The configuration also supports the `auth_jwt_algorithm` 'RS256', for RSA 256-bit public key validation. If using "auth_jwt_algorithm RS256;", then the `auth_jwt_key` field must be set to your public key.
 That is the public key, rather than a PEM certificate.  I.e.:
 
 ```
@@ -90,10 +80,17 @@ oQIDAQAB
 -----END PUBLIC KEY-----";
 ```
 
-By default, the module will attempt to validate the email address field of the JWT, then set the x-email header of the
-session, and will log an error if it isn't found.  To disable this behavior, for instance if you are using a different
-user identifier property such as 'sub', set:
+This module supports two ways of presenting the token.
+```
+auth_jwt_validation_type AUTHORIZATION;
+auth_jwt_validation_type COOKIE=rampartjwt;
+```
+By default the authorization header is used to provide a JWT for validation.
+However, you may use the `auth_jwt_validation_type` configuration to specify the name of a cookie that provides the JWT.
 
 ```
 auth_jwt_validate_email off;
 ```
+By default, the module will attempt to validate the email address field of the JWT, then set the x-email header of the
+session, and will log an error if it isn't found.  To disable this behavior, for instance if you are using a different
+user identifier property such as 'sub', set `auth_jwt_validate_email` to the value `off`.
