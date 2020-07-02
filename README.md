@@ -40,11 +40,27 @@ This module requires several new `nginx.conf` directives,
 which can be specified in on the `main` `server` or `location` level.
 
 ```
-auth_jwt_key "00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF"; # see docs for format based on algorithm
-auth_jwt_loginurl "https://yourdomain.com/loginpage";
+auth_jwt_key "00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF";
 auth_jwt_enabled on;
 auth_jwt_algorithm HS256; # or RS256
 auth_jwt_validate_email on;  # or off
+```
+
+So, a typical use would be to specify the key on the main level and then only 
+turn on the locations that you want to secure (not the login page).  Unauthorized 
+requests are given 401 "Unauthorized" responses, you can redirect them with the 
+nginx's `error_page` directive.
+
+```
+location @login_redirect {
+  allow all;
+  return 302 https://yourdomain.com/loginpage;
+}
+
+location /secure-location/ {
+  auth_jwt_enabled   on;
+  error_page  401 = @login_redirect;
+}
 ```
 
 The default algorithm is 'HS256', for symmetric key validation.  When using HS256, the value for `auth_jwt_key` should be specified in binhex format.  It is recommended to use at least 256 bits of data (32 pairs of hex characters or 64 characters in total) as in the example above.  Note that using more than 512 bits will not increase the security.  For key guidelines please see NIST Special Publication 800-107 Recommendation for Applications Using Approved Hash Algorithms, Section 5.3.2 The HMAC Key.
@@ -64,15 +80,7 @@ oQIDAQAB
 -----END PUBLIC KEY-----";
 ```
 
-A typical use would be to specify the key and loginurl on the main level
-and then only turn on the locations that you want to secure (not the login page).
-Unauthorized requests are given 302 "Moved Temporarily" responses with a location of the specified loginurl.
-
-```
-auth_jwt_redirect            off;
-```
-If you prefer to return 401 Unauthorized, you may turn `auth_jwt_redirect` off.
-
+This module supports two ways of presenting the token.
 ```
 auth_jwt_validation_type AUTHORIZATION;
 auth_jwt_validation_type COOKIE=rampartjwt;
