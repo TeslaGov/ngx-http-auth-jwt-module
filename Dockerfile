@@ -5,6 +5,7 @@ LABEL maintainer="TeslaGov" email="developers@teslagov.com"
 ARG NGINX_VERSION=1.16.1
 
 ENV LD_LIBRARY_PATH=/usr/local/lib
+# ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/share/pkgconfig
 
 RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm && \
     yum -y update && \
@@ -46,15 +47,17 @@ RUN wget https://github.com/akheron/jansson/archive/v$JANSSON_VERSION.zip && \
     make check && \
     make install
 
+ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/share/pkgconfig
+
 # build libjwt
-ARG LIBJWT_VERSION=1.11.0
+ARG LIBJWT_VERSION=1.12.0
 RUN wget https://github.com/benmcollins/libjwt/archive/v$LIBJWT_VERSION.zip && \
     unzip v$LIBJWT_VERSION.zip && \
     rm v$LIBJWT_VERSION.zip && \
     ln -sf libjwt-$LIBJWT_VERSION libjwt && \
     cd /root/dl/libjwt && \
     autoreconf -i && \
-    ./configure JANSSON_CFLAGS=/usr/local/include JANSSON_LIBS=/usr/local/lib && \
+    ./configure && \
     make all && \
     make install
 

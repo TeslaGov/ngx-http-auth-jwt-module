@@ -1,2 +1,7 @@
 .idea
 ngx_http_auth_jwt_module.so
+libjwt.so.0.6.0
+libjwt.la
+libjwt.a
+libjansson.so.4.13.0
+libjwt.so.0.7.0
