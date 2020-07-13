@@ -5,3 +5,5 @@ libjwt.la
 libjwt.a
 libjansson.so.4.13.0
 libjwt.so.0.7.0
+jansson.pc
+libjwt.pc
