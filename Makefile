@@ -43,6 +43,8 @@ start-nginx:
 	docker cp $(DOCKER_IMAGE_NAME)-cont:/usr/local/lib/libjwt.a .
 	docker cp $(DOCKER_IMAGE_NAME)-cont:/usr/local/lib/libjwt.la .
 	docker cp $(DOCKER_IMAGE_NAME)-cont:/usr/local/lib/libjwt.so.0.7.0 .
+	docker cp $(DOCKER_IMAGE_NAME)-cont:/usr/local/lib/pkgconfig/jansson.pc .
+	docker cp $(DOCKER_IMAGE_NAME)-cont:/usr/local/lib/pkgconfig/libjwt.pc .
 
 .PHONY: build-test-runner
 build-test-runner:
