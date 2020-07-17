@@ -3,8 +3,8 @@ FROM centos:7
 LABEL maintainer="TeslaGov" email="developers@teslagov.com"
 
 ARG NGINX_VERSION=1.16.1
-ARG JANSSON_VERSION=2.13.1
-ARG LIBJWT_VERSION=1.12.0
+ARG JANSSON_VERSION=2.10
+ARG LIBJWT_VERSION=1.9.0
 
 ENV LD_LIBRARY_PATH=/usr/local/lib
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/share/pkgconfig
