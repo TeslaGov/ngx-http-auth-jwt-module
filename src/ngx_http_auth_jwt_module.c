@@ -18,6 +18,10 @@
 #include "ngx_http_auth_jwt_binary_converters.h"
 #include "ngx_http_auth_jwt_string.h"
 
+#include <stdio.h>
+
+const char* KEY_FILE_PATH = "/app/pub_key";
+
 typedef struct {
 	ngx_str_t    auth_jwt_loginurl;
 	ngx_str_t    auth_jwt_key;
@@ -25,6 +29,7 @@ typedef struct {
 	ngx_flag_t   auth_jwt_redirect;
 	ngx_str_t    auth_jwt_validation_type;
 	ngx_str_t    auth_jwt_algorithm;
+	ngx_flag_t	 auth_jwt_filekey;
 	ngx_flag_t   auth_jwt_validate_email;
 
 } ngx_http_auth_jwt_loc_conf_t;
@@ -56,6 +61,13 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
 		ngx_conf_set_flag_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_enabled),
+		NULL },
+
+	{ ngx_string("auth_jwt_filekey"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+		ngx_conf_set_flag_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_filekey),
 		NULL },
 
 	{ ngx_string("auth_jwt_redirect"),
@@ -177,8 +189,45 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	else if ( auth_jwt_algorithm.len == sizeof("RS256") - 1 && ngx_strncmp(auth_jwt_algorithm.data, "RS256", sizeof("RS256") - 1) == 0 )
 	{
 		// in this case, 'Binary' is a misnomer, as it is the public key string itself
-		keyBinary = jwtcf->auth_jwt_key.data;
-		keylen = jwtcf->auth_jwt_key.len;
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a jwt");
+		if (jwtcf->auth_jwt_filekey == 1)
+		{
+			FILE *file = fopen(KEY_FILE_PATH, "rb");
+
+			// Check if file exists or is correctly opened
+			if (file == NULL)
+			{
+				char err[100];
+				strcpy(err, "failed to open pub key file: ");
+				strcat(err, KEY_FILE_PATH);
+				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, err);
+				goto redirect;
+			}
+
+			// Read file length
+			fseek(file, 0, SEEK_END);
+			long key_size = ftell(file);
+			fseek(file, 0, SEEK_SET);
+			
+			if (key_size == 0)
+			{
+				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "invalid key file size, check the key file");
+				goto redirect;
+			}
+
+			// Read pub key
+			char *pub_key = malloc(key_size + 1);
+			size_t bytes_read = fread(pub_key, 1, key_size, file);
+			fclose(file);
+
+			keyBinary = (u_char*)pub_key;
+			keylen = (int)key_size;
+		}
+		else
+		{
+			keyBinary = jwtcf->auth_jwt_key.data;
+			keylen = jwtcf->auth_jwt_key.len;
+		}
 	}
 	else
 	{
@@ -374,6 +423,7 @@ ngx_http_auth_jwt_create_loc_conf(ngx_conf_t *cf)
 	conf->auth_jwt_enabled = (ngx_flag_t) -1;
 	conf->auth_jwt_redirect = (ngx_flag_t) -1;
 	conf->auth_jwt_validate_email = (ngx_flag_t) -1;
+	conf->auth_jwt_filekey = (ngx_flag_t) -1;
 
 	ngx_conf_log_error(NGX_LOG_DEBUG, cf, 0, "Created Location Configuration");
 	
@@ -401,6 +451,11 @@ ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 	if (conf->auth_jwt_redirect == ((ngx_flag_t) -1))
 	{
 		conf->auth_jwt_redirect = (prev->auth_jwt_redirect == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_redirect;
+	}
+
+	if (conf->auth_jwt_filekey == ((ngx_flag_t) -1))
+	{
+		conf->auth_jwt_filekey = (prev->auth_jwt_filekey == ((ngx_flag_t) -1)) ? 0 : prev->auth_jwt_filekey;
 	}
 
 	return NGX_CONF_OK;
