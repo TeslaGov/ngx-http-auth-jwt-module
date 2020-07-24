@@ -29,8 +29,8 @@ typedef struct {
 	ngx_flag_t   auth_jwt_redirect;
 	ngx_str_t    auth_jwt_validation_type;
 	ngx_str_t    auth_jwt_algorithm;
-	ngx_flag_t	 auth_jwt_use_keyfile;
-	ngx_str_t	 auth_jwt_keyfile_path;
+	ngx_flag_t   auth_jwt_use_keyfile;
+	ngx_str_t    auth_jwt_keyfile_path;
 	ngx_flag_t   auth_jwt_validate_email;
 
 } ngx_http_auth_jwt_loc_conf_t;
