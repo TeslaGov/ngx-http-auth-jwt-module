@@ -149,6 +149,8 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	char* return_url;
 	ngx_http_auth_jwt_loc_conf_t *jwtcf;
 	u_char *keyBinary;
+	// For clearing it later on
+	char* pub_key = NULL;
 	jwt_t *jwt = NULL;
 	int jwtParseReturnCode;
 	jwt_alg_t alg;
@@ -224,7 +226,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			}
 
 			// Read pub key
-			char *pub_key = malloc(key_size + 1);
+			pub_key = malloc(key_size + 1);
 			size_t bytes_read = fread(pub_key, 1, key_size, file);
 			fclose(file);
 
@@ -296,6 +298,8 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 
 	jwt_free(jwt);
 
+	if (pub_key == NULL) free(pub_key);
+	
 	return NGX_OK;
 	
 	redirect:
