@@ -45,11 +45,13 @@ auth_jwt_loginurl "https://yourdomain.com/loginpage";
 auth_jwt_enabled on;
 auth_jwt_algorithm HS256; # or RS256
 auth_jwt_validate_email on;  # or off
+auth_jwt_use_keyfile off; # or on
+auth_jwt_keyfile_path "/app/pub_key";
 ```
 
 The default algorithm is 'HS256', for symmetric key validation.  When using HS256, the value for `auth_jwt_key` should be specified in binhex format.  It is recommended to use at least 256 bits of data (32 pairs of hex characters or 64 characters in total) as in the example above.  Note that using more than 512 bits will not increase the security.  For key guidelines please see NIST Special Publication 800-107 Recommendation for Applications Using Approved Hash Algorithms, Section 5.3.2 The HMAC Key.
 
-The configuration also supports the `auth_jwt_algorithm` 'RS256', for RSA 256-bit public key validation. If using "auth_jwt_algorithm RS256;", then the `auth_jwt_key` field must be set to your public key.
+The configuration also supports the `auth_jwt_algorithm` 'RS256', for RSA 256-bit public key validation. If using "auth_jwt_algorithm RS256;", then the `auth_jwt_key` field must be set to your public key **OR** `auth_jwt_use_keyfile` should be set to `on` with the `auth_jwt_keyfile_path` set to the public key path (which defaults to `"/app/pub_key"`).
 That is the public key, rather than a PEM certificate.  I.e.:
 
 ```
@@ -62,6 +64,13 @@ rhYyyUkedDn8e0WsDvH+ocY0cMcxCCN5jItCwhIbIkTO6WEGrDgWTY57UfWDqbMZ
 wO6AxLijfWV/JnVxNMUiobiKGc/PP6T5PI70Uv67Y4FzzWTuhqmREb3/BlcbPwtM
 oQIDAQAB
 -----END PUBLIC KEY-----";
+```
+
+**OR**
+
+```
+auth_jwt_use_keyfile on;
+auth_jwt_keyfile_path "/etc/nginx/pub_key.pem";
 ```
 
 A typical use would be to specify the key and loginurl on the main level
