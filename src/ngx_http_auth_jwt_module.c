@@ -424,13 +424,16 @@ static char * getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type)
 		if (authorizationHeader != NULL)
 		{
 			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "Found authorization header len %d", authorizationHeader->value.len);
+			n = authorizationHeader->value.len - (sizeof("Bearer ") - 1);
 
-			authorizationHeaderStr.data = authorizationHeader->value.data + sizeof("Bearer ") - 1;
-			authorizationHeaderStr.len = authorizationHeader->value.len - (sizeof("Bearer ") - 1);
+			if (n > 0) {
+				authorizationHeaderStr.data = authorizationHeader->value.data + sizeof("Bearer ") - 1;
+				authorizationHeaderStr.len = n;
 
-			jwtCookieValChrPtr = ngx_str_t_to_char_ptr(r->pool, authorizationHeaderStr);
+				jwtCookieValChrPtr = ngx_str_t_to_char_ptr(r->pool, authorizationHeaderStr);
 
-			ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "Authorization header: %s", jwtCookieValChrPtr);
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "Authorization header: %s", jwtCookieValChrPtr);
+			}
 		}
 	}
 	else if (auth_jwt_validation_type.len > sizeof("COOKIE=") && ngx_strncmp(auth_jwt_validation_type.data, "COOKIE=", sizeof("COOKIE=") - 1)==0)
