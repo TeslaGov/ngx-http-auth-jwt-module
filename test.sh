@@ -38,6 +38,8 @@ main() {
 
   test_jwt "Secure test without jwt auth header" "/secure-no-redirect/" "401"
 
+  test_jwt "Secure test with jwt auth header missing Bearer" "/secure-no-redirect/" "401" "--header \"Authorization: X\""
+
   test_jwt "Secure test with jwt cookie - with no sub" "/secure/" "200" " --cookie \"rampartjwt=${MISSING_SUB_JWT}\""
 
   test_jwt "Secure test with jwt cookie - with no email" "/secure/" "200" " --cookie \"rampartjwt=${MISSING_EMAIL_JWT}\""
