@@ -3,14 +3,21 @@ FROM centos:7
 LABEL maintainer="TeslaGov" email="developers@teslagov.com"
 
 ARG NGINX_VERSION=1.16.1
-ARG JANSSON_VERSION=2.10
-ARG LIBJWT_VERSION=1.9.0
+ARG JANSSON_VERSION=2.13.1
+ARG LIBJWT_VERSION=1.12.0
 
 ENV LD_LIBRARY_PATH=/usr/local/lib
 ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/share/pkgconfig
 
-RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm && \
-    yum -y update && \
+RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+RUN echo "" >>/etc/yum.repos.d/nginx.repo
+RUN echo "[nginx]" >>/etc/yum.repos.d/nginx.repo
+RUN echo "name=nginx repo" >>/etc/yum.repos.d/nginx.repo
+RUN echo "baseurl=https://nginx.org/packages/centos/7/x86_64/" >>/etc/yum.repos.d/nginx.repo
+RUN echo "gpgcheck=0" >>/etc/yum.repos.d/nginx.repo
+RUN echo "enabled=1" >>/etc/yum.repos.d/nginx.repo
+
+RUN yum -y update && \
     yum -y groupinstall 'Development Tools' && \
     yum -y install pcre-devel pcre zlib-devel openssl-devel wget cmake check-devel check && \
     yum -y install nginx-$NGINX_VERSION
@@ -69,7 +76,7 @@ RUN wget http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz && \
     rm nginx-$NGINX_VERSION.tar.gz && \
     ln -sf nginx-$NGINX_VERSION nginx && \
     cd /root/dl/nginx && \
-    ./configure --add-dynamic-module=../ngx-http-auth-jwt-module --prefix=/usr/share/nginx --sbin-path=/usr/sbin/nginx --modules-path=/usr/lib64/nginx/modules --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log --http-client-body-temp-path=/var/lib/nginx/tmp/client_body --http-proxy-temp-path=/var/lib/nginx/tmp/proxy --http-fastcgi-temp-path=/var/lib/nginx/tmp/fastcgi --http-uwsgi-temp-path=/var/lib/nginx/tmp/uwsgi --http-scgi-temp-path=/var/lib/nginx/tmp/scgi --pid-path=/run/nginx.pid --lock-path=/run/lock/subsys/nginx --user=nginx --group=nginx --with-file-aio --with-ipv6 --with-http_ssl_module --with-http_v2_module --with-http_realip_module --with-stream_ssl_preread_module --with-http_addition_module --with-http_xslt_module=dynamic --with-http_image_filter_module=dynamic --with-http_sub_module --with-http_dav_module --with-http_flv_module --with-http_mp4_module --with-http_gunzip_module --with-http_gzip_static_module --with-http_random_index_module --with-http_secure_link_module --with-http_degradation_module --with-http_slice_module --with-http_stub_status_module --with-http_perl_module=dynamic --with-http_auth_request_module --with-mail=dynamic --with-mail_ssl_module --with-pcre --with-pcre-jit --with-stream=dynamic --with-stream_ssl_module --with-google_perftools_module --with-debug --with-cc-opt='-O2 -g -pipe -Werror=unused-variable -Wno-unused-variable -Wno-error=unused-but-set-variable -Wall -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector-strong --param=ssp-buffer-size=4 -grecord-gcc-switches -specs=/usr/lib/rpm/redhat/redhat-hardened-cc1 -m64 -mtune=generic -std=gnu99' --with-ld-opt='-Wl,-z,relro -specs=/usr/lib/rpm/redhat/redhat-hardened-ld -Wl,-E' && \
+    ./configure --with-compat --add-dynamic-module=../ngx-http-auth-jwt-module --with-cc-opt='-std=gnu99' && \
     make modules && \
     cp /root/dl/nginx/objs/ngx_http_auth_jwt_module.so /usr/lib64/nginx/modules/.
 
