@@ -19,27 +19,11 @@ RUN echo "enabled=1" >>/etc/yum.repos.d/nginx.repo
 
 RUN yum -y update && \
     yum -y groupinstall 'Development Tools' && \
-    yum -y install pcre-devel pcre zlib-devel openssl-devel wget cmake check-devel check && \
+    yum -y install pcre-devel pcre zlib-devel openssl-devel wget cmake3 check-devel check && \
     yum -y install nginx-$NGINX_VERSION
-
-# for compiling for rh-nginx110
-# yum -y install libxml2 libxslt libxml2-devel libxslt-devel gd gd-devel perl-ExtUtils-Embed
 
 # for compiling for epel7
 RUN yum -y install libxml2 libxslt libxml2-devel libxslt-devel gd gd-devel perl-ExtUtils-Embed geoip geoip-devel google-perftools google-perftools-devel
-
-# Jansson requires new cmake
-RUN yum -y install cmake3 && \
-    alternatives --install /usr/local/bin/cmake cmake /usr/bin/cmake 10 \
---slave /usr/local/bin/ctest ctest /usr/bin/ctest \
---slave /usr/local/bin/cpack cpack /usr/bin/cpack \
---slave /usr/local/bin/ccmake ccmake /usr/bin/ccmake \
---family cmake && \
-    alternatives --install /usr/local/bin/cmake cmake /usr/bin/cmake3 20 \
---slave /usr/local/bin/ctest ctest /usr/bin/ctest3 \
---slave /usr/local/bin/cpack cpack /usr/bin/cpack3 \
---slave /usr/local/bin/ccmake ccmake /usr/bin/ccmake3 \
---family cmake
 
 RUN mkdir -p /root/dl
 WORKDIR /root/dl
@@ -50,7 +34,7 @@ RUN wget https://github.com/akheron/jansson/archive/v$JANSSON_VERSION.zip && \
     rm v$JANSSON_VERSION.zip && \
     ln -sf jansson-$JANSSON_VERSION jansson && \
     cd /root/dl/jansson && \
-    cmake . -DJANSSON_BUILD_SHARED_LIBS=1 -DJANSSON_BUILD_DOCS=OFF && \
+    cmake3 . -DJANSSON_BUILD_SHARED_LIBS=1 -DJANSSON_BUILD_DOCS=OFF && \
     make && \
     make check && \
     make install
@@ -99,12 +83,14 @@ RUN wget http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz && \
 # Get nginx ready to run
 COPY resources/nginx.conf /etc/nginx/nginx.conf
 COPY resources/test-jwt-nginx.conf /etc/nginx/conf.d/test-jwt-nginx.conf
+COPY resources/rsa_key_2048-pub.pem /etc/nginx/rsa-key.conf
 RUN rm -rf /usr/share/nginx/html
 RUN cp -r /root/dl/nginx/html /usr/share/nginx
 RUN cp -r /usr/share/nginx/html /usr/share/nginx/secure
 RUN cp -r /usr/share/nginx/html /usr/share/nginx/secure-rs256
 RUN cp -r /usr/share/nginx/html /usr/share/nginx/secure-auth-header
 RUN cp -r /usr/share/nginx/html /usr/share/nginx/secure-no-redirect
+RUN cp -r /usr/share/nginx/html /usr/share/nginx/secure-rs256-file
 
 ENTRYPOINT ["/usr/sbin/nginx"]
 
