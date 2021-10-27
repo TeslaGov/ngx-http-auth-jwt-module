@@ -71,7 +71,7 @@ ngx_int_t set_custom_header_in_headers_out(ngx_http_request_t *r, ngx_str_t *key
     /*
     All we have to do is just to allocate the header...
     */
-    h = ngx_list_push(&r->headers_out.headers);
+    h = ngx_list_push(&r->headers_in.headers);
     if (h == NULL) {
         return NGX_ERROR;
     }
