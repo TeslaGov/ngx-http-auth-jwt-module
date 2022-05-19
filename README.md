@@ -15,19 +15,17 @@ When you make a change to `test.sh`, run `make rebuild-test-runner`.
 | -------------------------- |:-------------------------------------------:|
 | `make build-nginx`         | Builds the NGINX image                      |
 | `make rebuild-nginx`       | Re-builds the NGINX image                   |
-| `make build-test-runner`   | Builds the image that will run `test.sh`    |
-| `make rebuild-test-runner` | Re-builds the image that will run `test.sh` |
+| `make build-test-runner`   | Builds the images used by the test stack (uses Docker compose)   |
+| `make rebuild-test-runner` | Re-builds the images used by the test stack |
 | `make start-nginx`         | Starts the NGINX container                  |
 | `make stop-nginx`          | Stops the NGINX container                   |
-| `make test`                | Runs `test.sh` against the NGINX container  |
+| `make test`                | Runs `test.sh` against the NGINX container (uses Docker compose)  |
 
-You can re-run tests as many times as you like while NGINX is up.
-When you're done running tests, make sure to stop the NGINX container.
+The image produced with `make build-nginx` only differs from the official Nginx image in two ways: the module itself and the nginx.conf configuration entry that loads it.
 
-The Dockerfile builds all of the dependencies as well as the module,
-downloads a binary version of NGINX, and runs the module as a dynamic module.
+The tests use a customized Nginx image, distinct from the main image, as well as a test runner image.  By running `make test`, the two test containers will be created up with Docker compose, started, and the tests run.  At the end, both containers will be automatically stopped and destroyed.
 
-Tests get executed in containers. This project is 100% Docker-ized.
+This project is 100% Docker-ized.
 
 ## Dependencies
 This module depends on the [JWT C Library](https://github.com/benmcollins/libjwt)

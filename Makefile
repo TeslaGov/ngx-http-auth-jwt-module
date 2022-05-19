@@ -48,12 +48,15 @@ start-nginx:
 
 .PHONY: build-test-runner
 build-test-runner:
-	docker image build -f Dockerfile-test -t $(DOCKER_ORG_NAME)/jwt-nginx-test-runner .
+	docker compose -f ./docker-compose-test.yml build
 
-.PHONY: frebuild-test-runner
+.PHONY: rebuild-test-runner
 rebuild-test-runner:
-	docker image build -f Dockerfile-test -t $(DOCKER_ORG_NAME)/jwt-nginx-test-runner . --no-cache
+	docker compose -f ./docker-compose-test.yml build --no-cache
 
 .PHONY: test
 test:
-	docker run --rm $(DOCKER_ORG_NAME)/jwt-nginx-test-runner
+	docker compose -f ./docker-compose-test.yml up --no-start
+	docker start jwt-nginx-test-nginx-1
+	docker start -a jwt-nginx-test-runner-1
+	docker compose -f ./docker-compose-test.yml down
