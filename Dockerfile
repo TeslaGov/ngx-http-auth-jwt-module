@@ -2,6 +2,7 @@ ARG NGINX_VERSION=1.21.6
 
 
 FROM debian:bullseye-slim as BASE_IMAGE
+LABEL stage=builder
 RUN apt-get update \
 	&& apt-get install -y curl build-essential
 
@@ -26,11 +27,14 @@ RUN set -x \
 
 
 FROM nginx:${NGINX_VERSION}
-LABEL maintainer="TeslaGov" email="developers@teslagov.com"
+LABEL stage=builder
 RUN apt-get update \
     && apt-get -y install libjansson4 libjwt0 \
 		&& cd /etc/nginx \
 		&& cp nginx.conf nginx.conf.orig \
 		&& sed -ri '/pid\s+\/var\/run\/nginx\.pid;$/a load_module \/usr\/lib64\/nginx\/modules\/ngx_http_auth_jwt_module\.so;' nginx.conf
 
+
+LABEL stage=
+LABEL maintainer="TeslaGov" email="developers@teslagov.com"
 COPY --from=BUILD_IMAGE /root/dl/nginx/objs/ngx_http_auth_jwt_module.so /usr/lib64/nginx/modules/
