@@ -18,7 +18,7 @@ all:
 .PHONY: build-nginx
 build-nginx:
 	@echo "${BLUE}  Building...${NC}"
-	@docker image build -t $(DOCKER_ORG_NAME)/$(DOCKER_IMAGE_NAME) . ; \
+	@docker image build -t $(DOCKER_ORG_NAME)/$(DOCKER_IMAGE_NAME) . --build-arg NGINX_VERSION=${NGINX_VERSION} ; \
 	if [ $$? -ne 0 ] ; \
 		then echo "${RED}  Build failed :(${NC}" ; \
 	else echo "${GREEN}✓ Successfully built NGINX module ${NC}" ; fi
@@ -26,7 +26,7 @@ build-nginx:
 .PHONY: rebuild-nginx
 rebuild-nginx:
 	@echo "${BLUE}  Rebuilding...${NC}"
-	@docker image build -t $(DOCKER_ORG_NAME)/$(DOCKER_IMAGE_NAME) . --no-cache ; \
+	@docker image build -t $(DOCKER_ORG_NAME)/$(DOCKER_IMAGE_NAME) . --no-cache --build-arg NGINX_VERSION=${NGINX_VERSION} ; \
 	if [ $$? -ne 0 ] ; \
 		then echo "${RED}  Build failed :(${NC}" ; \
 	else echo "${GREEN}✓ Successfully rebuilt NGINX module ${NC}" ; fi
