@@ -11,14 +11,14 @@ When you make a change to the module, run `make rebuild-nginx`.
 
 When you make a change to `test.sh`, run `make rebuild-test-runner`.
 
-| Command                    | Description                                 |
-| -------------------------- |:-------------------------------------------:|
-| `make build-nginx`         | Builds the NGINX image                      |
-| `make rebuild-nginx`       | Re-builds the NGINX image                   |
-| `make build-test-runner`   | Builds the images used by the test stack (uses Docker compose)   |
-| `make rebuild-test-runner` | Re-builds the images used by the test stack |
-| `make start-nginx`         | Starts the NGINX container                  |
-| `make stop-nginx`          | Stops the NGINX container                   |
+| Command                    | Description                                                       |
+| -------------------------- |:-----------------------------------------------------------------:|
+| `make build-nginx`         | Builds the NGINX image                                            |
+| `make rebuild-nginx`       | Re-builds the NGINX image                                         |
+| `make build-test-runner`   | Builds the images used by the test stack (uses Docker compose)    |
+| `make rebuild-test-runner` | Re-builds the images used by the test stack                       |
+| `make start-nginx`         | Starts the NGINX container                                        |
+| `make stop-nginx`          | Stops the NGINX container                                         |
 | `make test`                | Runs `test.sh` against the NGINX container (uses Docker compose)  |
 
 The image produced with `make build-nginx` only differs from the official Nginx image in two ways: the module itself and the nginx.conf configuration entry that loads it.
