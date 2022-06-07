@@ -1,4 +1,4 @@
-ARG NGINX_VERSION=1.21.6
+ARG NGINX_VERSION=1.22.0
 
 
 FROM debian:bullseye-slim as BASE_IMAGE
@@ -13,7 +13,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 ARG NGINX_VERSION
 ADD . /root/dl/ngx-http-auth-jwt-module
 RUN set -x \
-	&& apt-get install -y libjwt-dev libjwt0 libjansson-dev libjansson4 libpcre2-dev zlib1g-dev \
+	&& apt-get install -y libjwt-dev libjwt0 libjansson-dev libjansson4 libpcre2-dev zlib1g-dev libpcre3-dev \
 	&& mkdir -p /root/dl
 WORKDIR /root/dl
 RUN set -x \

@@ -8,7 +8,7 @@ NC    := \033[0m
 DOCKER_ORG_NAME ?= teslagov
 DOCKER_IMAGE_NAME ?= jwt-nginx
 COMPOSE_PROJECT_NAME ?= jwt-nginx-test
-NGINX_VERSION ?= 1.21.6
+NGINX_VERSION ?= 1.22.0
 
 .PHONY: all
 all:
@@ -51,15 +51,15 @@ start-nginx:
 
 .PHONY: build-test-runner
 build-test-runner:
-	docker compose -f ./docker-compose-test.yml build
+	IMAGE_VERSION=${NGINX_VERSION} docker compose -f ./docker-compose-test.yml build
 
 .PHONY: rebuild-test-runner
 rebuild-test-runner:
-	docker compose -f ./docker-compose-test.yml build --no-cache
+	IMAGE_VERSION=${NGINX_VERSION} docker compose -f ./docker-compose-test.yml build --no-cache
 
 .PHONY: test
 test:
-	docker compose -f ./docker-compose-test.yml up --no-start
+	IMAGE_VERSION=${NGINX_VERSION} docker compose -f ./docker-compose-test.yml up --no-start
 	docker start ${COMPOSE_PROJECT_NAME}-nginx-1
 	docker start -a ${COMPOSE_PROJECT_NAME}-runner-1
 	docker compose -f ./docker-compose-test.yml down

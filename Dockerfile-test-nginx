@@ -1,4 +1,5 @@
-ARG BASE_IMAGE=teslagov/jwt-nginx
+ARG BASE_IMAGE=teslagov/jwt-nginx:latest
+
 FROM ${BASE_IMAGE} as NGINX
 COPY resources/test-jwt-nginx.conf /etc/nginx/conf.d/test-jwt-nginx.conf
 COPY resources/rsa_key_2048-pub.pem /etc/nginx/rsa-key.conf
