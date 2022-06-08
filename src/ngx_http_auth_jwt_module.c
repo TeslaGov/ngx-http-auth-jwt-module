@@ -27,6 +27,7 @@ typedef struct {
 	ngx_flag_t   auth_jwt_redirect;
 	ngx_str_t    auth_jwt_validation_type;
 	ngx_str_t    auth_jwt_algorithm;
+	ngx_flag_t   auth_jwt_extract_sub;
 	ngx_flag_t   auth_jwt_validate_email;
 	ngx_str_t    auth_jwt_keyfile_path;
 	ngx_flag_t   auth_jwt_use_keyfile;
@@ -82,6 +83,13 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_algorithm),
+		NULL },
+
+	{ ngx_string("auth_jwt_extract_sub"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+		ngx_conf_set_flag_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_extract_sub),
 		NULL },
 
 	{ ngx_string("auth_jwt_validate_email"),
@@ -152,9 +160,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	jwt_t *jwt = NULL;
 	int jwtParseReturnCode;
 	jwt_alg_t alg;
-	const char* sub;
 	const char* email;
-	ngx_str_t sub_t;
 	ngx_str_t email_t;
 	time_t exp;
 	time_t now;
@@ -242,15 +248,20 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	}
 
 	// extract the userid
-	sub = jwt_get_grant(jwt, "sub");
-	if (sub == NULL)
+	if (jwtcf->auth_jwt_extract_sub == 1)
 	{
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the jwt does not contain a subject");
-	}
-	else
-	{
-		sub_t = ngx_char_ptr_to_str_t(r->pool, (char *)sub);
-		set_custom_header_in_headers_out(r, &useridHeaderName, &sub_t);
+		const char* sub = jwt_get_grant(jwt, "sub");
+
+		if (sub == NULL)
+		{
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the jwt does not contain a subject");
+		}
+		else
+		{
+			ngx_str_t sub_t = ngx_char_ptr_to_str_t(r->pool, (char *)sub);
+
+			set_custom_header_in_headers_out(r, &useridHeaderName, &sub_t);
+		}
 	}
 
 	if (jwtcf->auth_jwt_validate_email == 1)
@@ -403,6 +414,7 @@ ngx_http_auth_jwt_create_loc_conf(ngx_conf_t *cf)
 	// set the flag to unset
 	conf->auth_jwt_enabled = (ngx_flag_t) -1;
 	conf->auth_jwt_redirect = (ngx_flag_t) -1;
+	conf->auth_jwt_extract_sub = (ngx_flag_t) -1;
 	conf->auth_jwt_validate_email = (ngx_flag_t) -1;
 	conf->auth_jwt_use_keyfile = (ngx_flag_t) -1;
 
@@ -453,6 +465,7 @@ ngx_http_auth_jwt_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 	ngx_conf_merge_str_value(conf->auth_jwt_validation_type, prev->auth_jwt_validation_type, "");
 	ngx_conf_merge_str_value(conf->auth_jwt_algorithm, prev->auth_jwt_algorithm, "HS256");
 	ngx_conf_merge_str_value(conf->auth_jwt_keyfile_path, prev->auth_jwt_keyfile_path, "");
+	ngx_conf_merge_off_value(conf->auth_jwt_extract_sub, prev->auth_jwt_extract_sub, 1);
 	ngx_conf_merge_off_value(conf->auth_jwt_validate_email, prev->auth_jwt_validate_email, 1);
 	
 	if (conf->auth_jwt_enabled == ((ngx_flag_t) -1)) 

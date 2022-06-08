@@ -41,9 +41,10 @@ which can be specified in on the `main` `server` or `location` level.
 auth_jwt_key "00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF"; # see docs for format based on algorithm
 auth_jwt_loginurl "https://yourdomain.com/loginpage";
 auth_jwt_enabled on;
-auth_jwt_algorithm HS256; # or RS256
+auth_jwt_algorithm HS256;    # or RS256
+auth_jwt_extract_sub on;     # or off
 auth_jwt_validate_email on;  # or off
-auth_jwt_use_keyfile off; # or on
+auth_jwt_use_keyfile off;    # or on
 auth_jwt_keyfile_path "/app/pub_key";
 ```
 
@@ -86,6 +87,13 @@ auth_jwt_validation_type COOKIE=rampartjwt;
 ```
 By default the authorization header is used to provide a JWT for validation.
 However, you may use the `auth_jwt_validation_type` configuration to specify the name of a cookie that provides the JWT.
+
+```
+auth_jwt_extract_sub
+```
+By default, the module will attempt to extract the `sub` claim (e.g. the user's id) from the JWT. If successful, the 
+value will be set in the `x-userid` HTTP header. An error will be logged if this option is enabled and the JWT does not 
+contain the `sub` claim.
 
 ```
 auth_jwt_validate_email off;
