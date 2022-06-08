@@ -30,9 +30,9 @@ FROM nginx:${NGINX_VERSION}
 LABEL stage=builder
 RUN apt-get update \
     && apt-get -y install libjansson4 libjwt0 \
-		&& cd /etc/nginx \
-		&& cp nginx.conf nginx.conf.orig \
-		&& sed -ri '/pid\s+\/var\/run\/nginx\.pid;$/a load_module \/usr\/lib64\/nginx\/modules\/ngx_http_auth_jwt_module\.so;' nginx.conf
+	&& cd /etc/nginx \
+	&& cp nginx.conf nginx.conf.orig \
+	&& sed -ri '/pid\s+\/var\/run\/nginx\.pid;$/a load_module \/usr\/lib64\/nginx\/modules\/ngx_http_auth_jwt_module\.so;' nginx.conf
 
 
 LABEL stage=
