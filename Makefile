@@ -47,7 +47,15 @@ stop-nginx:
 .PHONY: start-nginx
 start-nginx:
 	docker run --rm --name "${DOCKER_IMAGE_NAME}" -d -p 8000:8000 ${DOCKER_ORG_NAME}/${DOCKER_IMAGE_NAME}
-	docker cp ${DOCKER_IMAGE_NAME}:/usr/lib64/nginx/modules/ngx_http_auth_jwt_module.so .
+
+.PHONY: cp-bin
+cp-bin: start-nginx
+	rm -rf bin
+	mkdir -p bin
+	docker exec jwt-nginx sh -c "tar -chf - \
+		/usr/lib64/nginx/modules/ngx_http_auth_jwt_module.so \
+		/usr/lib/x86_64-linux-gnu/libjansson.so.* \
+		/usr/lib/x86_64-linux-gnu/libjwt.*" 2>/dev/null | tar -xf - -C bin &>/dev/null
 
 .PHONY: build-test-runner
 build-test-runner:
