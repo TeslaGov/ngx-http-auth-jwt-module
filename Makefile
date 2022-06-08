@@ -25,24 +25,24 @@ build-nginx:
 	SUCCESS=$$? ; \
 	docker rmi $$(docker images --filter=label=stage=builder --quiet); \
 	if [ "$$SUCCESS" -ne 0 ] ; \
-		then echo "${RED}  Build failed :(${NC}" ; \
-	else echo "${GREEN}✓ Successfully built NGINX module ${NC}" ; fi
+	then echo "${RED}  Build failed ${NC}"; \
+	else echo "${GREEN}✓ Successfully built NGINX module ${NC}"; fi
 
 .PHONY: rebuild-nginx
 rebuild-nginx:
 	@echo "${BLUE}  Rebuilding...${NC}"
 	@docker image pull debian:bullseye-slim
 	@docker image pull nginx:${NGINX_VERSION}
-	@docker image build -t ${DOCKER_ORG_NAME}/${DOCKER_IMAGE_NAME}:latest -t ${DOCKER_ORG_NAME}/${DOCKER_IMAGE_NAME}:${NGINX_VERSION} --build-arg NGINX_VERSION=${NGINX_VERSION} . --no-cache ; \
+	@docker image build -t ${DOCKER_ORG_NAME}/${DOCKER_IMAGE_NAME}:latest -t ${DOCKER_ORG_NAME}/${DOCKER_IMAGE_NAME}:${NGINX_VERSION} --build-arg NGINX_VERSION=${NGINX_VERSION} --no-cache .; \
 	SUCCESS=$$? ; \
 	docker rmi $$(docker images --filter=label=stage=builder --quiet); \
 	if [ "$$SUCCESS" -ne 0 ] ; \
-		then echo "${RED}  Build failed :(${NC}" ; \
-	else echo "${GREEN}✓ Successfully rebuilt NGINX module ${NC}" ; fi
+	then echo "${RED}  Build failed ${NC}"; \
+	else echo "${GREEN}✓ Successfully rebuilt NGINX module ${NC}"; fi
 
 .PHONY: stop-nginx
 stop-nginx:
-	docker stop $(shell docker inspect --format="{{.Id}}" "$(DOCKER_IMAGE_NAME)") ||:
+	docker stop "${DOCKER_IMAGE_NAME}"
 
 .PHONY: start-nginx
 start-nginx:
