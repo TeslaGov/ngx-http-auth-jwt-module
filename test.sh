@@ -11,10 +11,9 @@ test_jwt () {
   local extra=$4
 
   cmd="curl -X GET -o /dev/null --silent --head --write-out '%{http_code}' http://nginx:8000$path -H 'cache-control: no-cache' $extra"
-  
-
   test=$( eval ${cmd} )
-  if [ "$test" -eq "$expect" ];then
+
+  if [ "$test" -eq "$expect" ]; then
     echo -e "${GREEN}${name}: passed (${test})${NONE}";
   else
     echo -e "${RED}${name}: failed (${test})${NONE}";

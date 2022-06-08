@@ -179,6 +179,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	}
 	
 	jwtCookieValChrPtr = getJwt(r, jwtcf->auth_jwt_validation_type);
+
 	if (jwtCookieValChrPtr == NULL)
 	{
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a jwt");
@@ -188,6 +189,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	// convert key from hex to binary, if a symmetric key
 
 	auth_jwt_algorithm = jwtcf->auth_jwt_algorithm;
+
 	if (auth_jwt_algorithm.len == 0 || (auth_jwt_algorithm.len == sizeof("HS256") - 1 && ngx_strncmp(auth_jwt_algorithm.data, "HS256", sizeof("HS256") - 1)==0))
 	{
 		keylen = jwtcf->auth_jwt_key.len / 2;
@@ -222,6 +224,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	
 	// validate the jwt
 	jwtParseReturnCode = jwt_decode(&jwt, jwtCookieValChrPtr, keyBinary, keylen);
+
 	if (jwtParseReturnCode != 0)
 	{
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to parse jwt");
@@ -230,6 +233,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	
 	// validate the algorithm
 	alg = jwt_get_alg(jwt);
+
 	if (alg != JWT_ALG_HS256 && alg != JWT_ALG_RS256)
 	{
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "invalid algorithm in jwt %d", alg);
@@ -239,6 +243,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	// validate the exp date of the JWT
 	exp = (time_t)jwt_get_grant_int(jwt, "exp");
 	now = time(NULL);
+
 	if (exp < now)
 	{
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the jwt has expired");
@@ -279,12 +284,10 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	}
 
 	jwt_free(jwt);
-
 	
 	return NGX_OK;
 	
 	redirect:
-
 		if (jwt)
 		{
 			jwt_free(jwt);
@@ -314,7 +317,6 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			uintptr_t escaped_len;
 
 			loginlen = jwtcf->auth_jwt_loginurl.len;
-
 			scheme = (r->connection->ssl) ? "https" : "http";
 			server = r->headers_in.server;
 
@@ -329,15 +331,11 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 				uri.data = ngx_palloc(r->pool, request_uri_var->len);
 				uri.len = request_uri_var->len;
 				ngx_memcpy(uri.data, request_uri_var->data, request_uri_var->len);
-
-				// ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "found uri with querystring %s", ngx_str_t_to_char_ptr(r->pool, uri));
 			}
 			else
 			{
 				// fallback to the querystring without params
 				uri = r->uri;
-
-				// ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "fallback to querystring without params");
 			}
 
 			// escape the URI
@@ -361,8 +359,6 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			ngx_memcpy(return_url+return_url_idx, uri_escaped.data, uri_escaped.len);
 			return_url_idx += uri_escaped.len;
 			r->headers_out.location->value.data = (u_char *)return_url;
-
-			// ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "return_url: %s", ngx_str_t_to_char_ptr(r->pool, r->headers_out.location->value));
 		}
 		else
 		{
