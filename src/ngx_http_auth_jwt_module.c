@@ -160,8 +160,6 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	jwt_t *jwt = NULL;
 	int jwtParseReturnCode;
 	jwt_alg_t alg;
-	const char* email;
-	ngx_str_t email_t;
 	time_t exp;
 	time_t now;
 	ngx_str_t auth_jwt_algorithm;
@@ -266,14 +264,16 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 
 	if (jwtcf->auth_jwt_validate_email == 1)
 	{
-		email = jwt_get_grant(jwt, "emailAddress");
+		const char* email = jwt_get_grant(jwt, "emailAddress");
+		
 		if (email == NULL)
 		{
 			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the jwt does not contain an email address");
 		}
 		else
 		{
-			email_t = ngx_char_ptr_to_str_t(r->pool, (char *)email);
+			ngx_str_t email_t = ngx_char_ptr_to_str_t(r->pool, (char *)email);
+
 			set_custom_header_in_headers_out(r, &emailHeaderName, &email_t);
 		}
 	}

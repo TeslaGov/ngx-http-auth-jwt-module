@@ -100,4 +100,5 @@ auth_jwt_validate_email off;
 ```
 By default, the module will attempt to validate the email address field of the JWT, then set the x-email header of the
 session, and will log an error if it isn't found.  To disable this behavior, for instance if you are using a different
-user identifier property such as 'sub', set `auth_jwt_validate_email` to the value `off`.
+user identifier property such as `sub`, set `auth_jwt_validate_email` to the value `off`. _Note that this flag may be 
+renamed to `auth_jwt_extract_email` in a future release._
