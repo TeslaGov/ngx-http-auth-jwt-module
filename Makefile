@@ -46,7 +46,7 @@ stop-nginx:
 
 .PHONY: start-nginx
 start-nginx:
-	docker run --rm --name "${DOCKER_IMAGE_NAME}" -d -p 8000:8000 ${DOCKER_ORG_NAME}/${DOCKER_IMAGE_NAME}
+	docker run --rm --name "${DOCKER_IMAGE_NAME}" -d -p 8000:80 ${DOCKER_ORG_NAME}/${DOCKER_IMAGE_NAME}
 
 .PHONY: cp-bin
 cp-bin: start-nginx
