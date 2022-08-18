@@ -442,11 +442,17 @@ loadAuthKey(ngx_conf_t *cf, ngx_http_auth_jwt_loc_conf_t* conf) {
 	}
 
 	conf->_auth_jwt_keyfile.data = ngx_palloc(cf->pool, keySize);
-	fread(conf->_auth_jwt_keyfile.data, 1, keySize, keyFile);
-	conf->_auth_jwt_keyfile.len = (int)keySize;
+	if(fread(conf->_auth_jwt_keyfile.data, 1, keySize, keyFile)) {
 
-	fclose(keyFile);
-	return NGX_OK;
+          conf->_auth_jwt_keyfile.len = (int)keySize;
+          fclose(keyFile);
+          return NGX_OK;
+
+	} else {
+
+	  return NGX_ERROR;
+
+	}
 }
 
 static char *
