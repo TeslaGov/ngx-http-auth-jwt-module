@@ -3,6 +3,7 @@ This is an NGINX module to check for a valid JWT and proxy to an upstream server
 
 ## Building and testing
 To build the Docker image, start NGINX, and run our Bash test against it, run
+
 ```bash
 make
 ```
