@@ -17,4 +17,4 @@ services:
       BASE_IMAGE: ${IMAGE_NAME:-teslagov/jwt-nginx}:${IMAGE_VERSION:-latest}
     
     depends_on:
-      - nginx-test
+      - nginx
