@@ -83,7 +83,7 @@ If you prefer to return 401 Unauthorized, you may turn `auth_jwt_redirect` off.
 
 ```
 auth_jwt_validation_type AUTHORIZATION;
-auth_jwt_validation_type COOKIE=rampartjwt;
+auth_jwt_validation_type COOKIE=jwt;
 ```
 By default the authorization header is used to provide a JWT for validation.
 However, you may use the `auth_jwt_validation_type` configuration to specify the name of a cookie that provides the JWT.

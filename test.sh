@@ -31,7 +31,7 @@ main() {
 
   test_jwt "Secure test without jwt cookie" "/secure/" "302"
 
-  test_jwt "Secure test with jwt cookie" "/secure/" "200" "--cookie \"rampartjwt=${VALIDJWT}\""
+  test_jwt "Secure test with jwt cookie" "/secure/" "200" "--cookie \"jwt=${VALIDJWT}\""
 
   test_jwt "Secure test with jwt auth header" "/secure-auth-header/" "200" "--header \"Authorization: Bearer ${VALIDJWT}\""
 
@@ -41,11 +41,11 @@ main() {
 
   test_jwt "Secure test without jwt auth header" "/secure-no-redirect/" "401"
 
-  test_jwt "Secure test with jwt cookie - with no sub" "/secure/" "200" " --cookie \"rampartjwt=${MISSING_SUB_JWT}\""
+  test_jwt "Secure test with jwt cookie - with no sub" "/secure/" "200" " --cookie \"jwt=${MISSING_SUB_JWT}\""
 
-  test_jwt "Secure test with jwt cookie - with no email" "/secure/" "200" " --cookie \"rampartjwt=${MISSING_EMAIL_JWT}\""
+  test_jwt "Secure test with jwt cookie - with no email" "/secure/" "200" " --cookie \"jwt=${MISSING_EMAIL_JWT}\""
 
-  test_jwt "Secure test with rs256 jwt cookie" "/secure-rs256/" "200" " --cookie \"rampartjwt=${VALID_RS256_JWT}\""
+  test_jwt "Secure test with rs256 jwt cookie" "/secure-rs256/" "200" " --cookie \"jwt=${VALID_RS256_JWT}\""
 
   test_jwt "Secure test rsa256 from file with valid jwt" "/secure-rs256-file/" "200" "--header \"Authorization: Bearer ${VALID_RS256_JWT}\""
 
