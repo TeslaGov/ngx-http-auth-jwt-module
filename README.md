@@ -144,4 +144,4 @@ auth_jwt_validate_email off;
 
 ## Contributing
 
-If you'd like to contribute to this repository, please first initiate the Git hooks by running `./bin/init` -- this will ensure that tests are run before you push your changes.
+If you'd like to contribute to this repository, please first initiate the Git hooks by running `./.bin/init` (note the `.` before `bin`) -- this will ensure that tests are run before you push your changes.
