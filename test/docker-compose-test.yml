@@ -1,0 +1,24 @@
+version: '3.3'
+
+services:
+
+  nginx:
+    container_name: ${CONTAINER_NAME_PREFIX}
+    build:
+      context: .
+      dockerfile: Dockerfile-test-nginx
+      args:
+        BASE_IMAGE: ${IMAGE_NAME}:${IMAGE_VERSION:-latest}
+    logging:
+      driver: ${LOG_DRIVER:-journald}
+
+  runner:
+    container_name: ${CONTAINER_NAME_PREFIX}-runner
+    build:
+      context: .
+      dockerfile: Dockerfile-test-runner
+    environment:
+      BASE_IMAGE: ${IMAGE_NAME}:${IMAGE_VERSION:-latest}
+    
+    depends_on:
+      - nginx
