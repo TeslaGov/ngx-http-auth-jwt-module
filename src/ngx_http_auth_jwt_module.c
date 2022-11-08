@@ -152,7 +152,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 {
 	ngx_str_t useridHeaderName = ngx_string("x-userid");
 	ngx_str_t emailHeaderName = ngx_string("x-email");
-	char* jwtCookieValChrPtr;
+	char* jwtPtr;
 	char* return_url;
 	ngx_http_auth_jwt_loc_conf_t *jwtcf;
 	u_char *keyBinary;
@@ -178,9 +178,9 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		return NGX_DECLINED;
 	}
 	
-	jwtCookieValChrPtr = getJwt(r, jwtcf->auth_jwt_validation_type);
+	jwtPtr = getJwt(r, jwtcf->auth_jwt_validation_type);
 
-	if (jwtCookieValChrPtr == NULL)
+	if (jwtPtr == NULL)
 	{
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a jwt");
 		goto redirect;
@@ -223,7 +223,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	}
 	
 	// validate the jwt
-	jwtParseReturnCode = jwt_decode(&jwt, jwtCookieValChrPtr, keyBinary, keylen);
+	jwtParseReturnCode = jwt_decode(&jwt, jwtPtr, keyBinary, keylen);
 
 	if (jwtParseReturnCode != 0)
 	{
@@ -500,7 +500,7 @@ static char * getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type)
 {
 	static const ngx_str_t authorizationHeaderName = ngx_string("Authorization");
 	ngx_table_elt_t *authorizationHeader;
-	char* jwtCookieValChrPtr = NULL;
+	char* jwtPtr = NULL;
 	ngx_str_t jwtCookieVal;
 	ngx_int_t n;
 	ngx_int_t bearer_length;
@@ -523,9 +523,9 @@ static char * getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type)
 				authorizationHeaderStr.data = authorizationHeader->value.data + sizeof("Bearer ") - 1;
 				authorizationHeaderStr.len = bearer_length;
 
-				jwtCookieValChrPtr = ngx_str_t_to_char_ptr(r->pool, authorizationHeaderStr);
+				jwtPtr = ngx_str_t_to_char_ptr(r->pool, authorizationHeaderStr);
 
-				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "Authorization header: %s", jwtCookieValChrPtr);
+				ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "Authorization header: %s", jwtPtr);
 			}
 		}
 	}
@@ -539,11 +539,11 @@ static char * getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type)
 		n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &auth_jwt_validation_type, &jwtCookieVal);
 		if (n != NGX_DECLINED) 
 		{
-			jwtCookieValChrPtr = ngx_str_t_to_char_ptr(r->pool, jwtCookieVal);
+			jwtPtr = ngx_str_t_to_char_ptr(r->pool, jwtCookieVal);
 		}
 	}
 
-	return jwtCookieValChrPtr;
+	return jwtPtr;
 }
 
 
