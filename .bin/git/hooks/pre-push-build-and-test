@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+REPO_ROOT_DIR=$(git rev-parse --show-toplevel)
+CHANGE_COUNT=$(cd ${REPO_ROOT_DIR}; git diff --name-only origin/HEAD..HEAD -- resources/ src/ test/ Dockerfile scripts.sh |wc -l)
+
+if [[ "0" -ne "${CHANGE_COUNT}" ]]; then
+	(cd ${REPO_ROOT_DIR}; ./scripts.sh rebuild_nginx rebuild_test_runner test)
+else
+  HOOK_NAME=$(basename $0)
+
+	echo "Skipping hook '${HOOK_NAME}' -- no changes detected which would require tests to be run."
+fi
