@@ -49,8 +49,8 @@ stop_nginx() {
 cp_bin() {
 	printf "${BLUE}  Copying binaries...${NC}"
 	rm -rf bin
-	mkdir -p bin
-	docker exec jwt-nginx sh -c "tar -chf - \
+	mkdir bin
+	docker exec "${DOCKER_IMAGE_NAME}" sh -c "tar -chf - \
 		/usr/lib64/nginx/modules/ngx_http_auth_jwt_module.so \
 		/usr/lib/x86_64-linux-gnu/libjansson.so.* \
 		/usr/lib/x86_64-linux-gnu/libjwt.*" 2>/dev/null | tar -xf - -C bin &>/dev/null
