@@ -182,7 +182,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 
 	if (jwtPtr == NULL)
 	{
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a jwt");
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a JWT");
 		goto redirect;
 	}
 	
@@ -190,7 +190,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 
 	auth_jwt_algorithm = jwtcf->auth_jwt_algorithm;
 
-	if (auth_jwt_algorithm.len == 0 || (auth_jwt_algorithm.len == sizeof("HS256") - 1 && ngx_strncmp(auth_jwt_algorithm.data, "HS256", sizeof("HS256") - 1)==0))
+	if (auth_jwt_algorithm.len == 0 || (auth_jwt_algorithm.len == 5 && ngx_strncmp(auth_jwt_algorithm.data, "HS", 2) == 0))
 	{
 		keylen = jwtcf->auth_jwt_key.len / 2;
 		keyBinary = ngx_palloc(r->pool, keylen);
@@ -200,7 +200,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			goto redirect;
 		}
 	}
-	else if ( auth_jwt_algorithm.len == sizeof("RS256") - 1 && ngx_strncmp(auth_jwt_algorithm.data, "RS256", sizeof("RS256") - 1) == 0 )
+	else if ( auth_jwt_algorithm.len == 5 && ngx_strncmp(auth_jwt_algorithm.data, "RS", 2) == 0 )
 	{
 		// in this case, 'Binary' is a misnomer, as it is the public key string itself
 		if (jwtcf->auth_jwt_use_keyfile == 1)
@@ -218,7 +218,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	}
 	else
 	{
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "unsupported algorithm");
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "unsupported algorithm %s", auth_jwt_algorithm);
 		goto redirect;
 	}
 	
@@ -227,16 +227,16 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 
 	if (jwtParseReturnCode != 0)
 	{
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to parse jwt, error code %d", jwtParseReturnCode);
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to parse JWT, error code %d", jwtParseReturnCode);
 		goto redirect;
 	}
 	
 	// validate the algorithm
 	alg = jwt_get_alg(jwt);
 
-	if (alg != JWT_ALG_HS256 && alg != JWT_ALG_RS256)
+	if (alg != JWT_ALG_HS256 && alg != JWT_ALG_HS384 && alg != JWT_ALG_HS512 && alg != JWT_ALG_RS256 && alg != JWT_ALG_RS384 && alg != JWT_ALG_RS512)
 	{
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "invalid algorithm in jwt %d", alg);
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "invalid algorithm in JWT (%d)", alg);
 		goto redirect;
 	}
 	
@@ -246,7 +246,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 
 	if (exp < now)
 	{
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the jwt has expired");
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the JWT has expired");
 		goto redirect;
 	}
 
@@ -257,7 +257,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 
 		if (sub == NULL)
 		{
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the jwt does not contain a subject");
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the JWT does not contain a subject");
 		}
 		else
 		{
@@ -273,7 +273,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		
 		if (email == NULL)
 		{
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the jwt does not contain an email address");
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the JWT does not contain an email address");
 		}
 		else
 		{
