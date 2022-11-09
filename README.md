@@ -145,3 +145,56 @@ auth_jwt_validate_email off;
 ## Contributing
 
 If you'd like to contribute to this repository, please first initiate the Git hooks by running `./.bin/init` (note the `.` before `bin`) -- this will ensure that tests are run before you push your changes.
+
+### Environment Set-up for Visual Studio Code
+
+1. Install the C/C++ extension from Microsoft.
+2. Add a C/C++ config file at `.vscode/c_cpp_properties.json` with the following (or similar) content:
+
+```json
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "~/Projects/third-party/nginx/objs/**",
+                "~/Projects/third-party/nginx/src/**",
+                "~/Projects/third-party/libjwt/include/**",
+                "~/Projects/third-party/jansson/src/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-clang-x64"
+        }
+    ],
+    "version": 4
+}
+```
+
+Note the `includePath` additions above -- please update them as appropriate. Next we need to pull these sources.
+
+#### Building NGINX
+
+1. Download the NGINX release matching the version you're targeting.
+2. Extract the NGINX archive to wherever you'd like.
+3. Update the `includePath` entires shown above to match the location you chose.
+4. Enter the directory where you extracted NGINX and run: `./configure --with-compat`
+
+### Cloning libjwt
+
+1. Clone this repository as follows (replace `<target_dir>`): `git clone git@github.com:benmcollins/libjwt.git <target_dir>
+2. Enter the directory and switch to the latest tag: `git checkout $(git tag | sort -Vr | head -n 1)`
+3. Update the `includePath` entires shown above to match the location you chose.
+
+### Cloning lobjansson
+
+1. Clone this repository as follows (replace `<target_dir>`): `git clone git@github.com:akheron/jansson.git <target_dir>
+2. Enter the directory and switch to the latest tag: `git checkout $(git tag | sort -Vr | head -n 1)`
+3. Update the `includePath` entires shown above to match the location you chose.
+
+### Verify Compliation
+
+Once you save your changes to `.vscode/c_cpp_properties.json`, you should see that warnings and errors in the Problems panel go away, at least temprorarily. Hopfeully they don't come back, but if they do, make sure your include paths are set correctly.
