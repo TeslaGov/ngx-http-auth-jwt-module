@@ -5,11 +5,11 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-DOCKER_ORG_NAME=${DOCKER_ORG_NAME:-teslagov}
-DOCKER_IMAGE_NAME=${DOCKER_IMAGE_NAME:-jwt-nginx}
-DOCKER_FULL_IMAGE_NAME=${DOCKER_ORG_NAME}/${DOCKER_IMAGE_NAME}
-CONTAINER_NAME_PREFIX=${CONTAINER_NAME_PREFIX:-jwt-nginx-test}
-NGINX_VERSION=${NGINX_VERSION:-1.22.0}
+export ORG_NAME=${ORG_NAME:-teslagov}
+export IMAGE_NAME=${IMAGE_NAME:-jwt-nginx}
+export FULL_IMAGE_NAME=${ORG_NAME}/${IMAGE_NAME}
+export CONTAINER_NAME_PREFIX=${CONTAINER_NAME_PREFIX:-jwt-nginx-test}
+export NGINX_VERSION=${NGINX_VERSION:-1.22.0}
 
 all() {
 	build_nginx
@@ -17,13 +17,22 @@ all() {
 	test
 }
 
+fetch_headers() {
+	printf "${BLUE} Fetching NGINX headers...${NC}"
+	local files='src/core/ngx_core.h src/http/ngx_http.h'
+
+	for f in ${files}; do
+		curl "https://raw.githubusercontent.com/nginx/nginx/release-${NGINX_VERSION}/${f}" -o src/lib/$(basename ${f})
+	done
+}
+
 build_nginx() {
-	DOCKER_ARGS=${1:-}
+	local dockerArgs=${1:-}
 
 	printf "${BLUE}  Building...${NC}"
 	docker image pull debian:bullseye-slim
 	docker image pull nginx:${NGINX_VERSION}
-	docker image build -t ${DOCKER_FULL_IMAGE_NAME}:latest -t ${DOCKER_FULL_IMAGE_NAME}:${NGINX_VERSION} --build-arg NGINX_VERSION=${NGINX_VERSION} ${DOCKER_ARGS} .
+	docker image build -t ${FULL_IMAGE_NAME}:latest -t ${FULL_IMAGE_NAME}:${NGINX_VERSION} --build-arg NGINX_VERSION=${NGINX_VERSION} ${dockerArgs} .
 	
 	if [ "$?" -ne 0 ]; then
 		printf "${RED}  Build failed ${NC}"
@@ -39,32 +48,28 @@ rebuild_nginx() {
 }
 
 start_nginx() {
-	docker run --rm --name "${DOCKER_IMAGE_NAME}" -d -p 8000:80 ${DOCKER_FULL_IMAGE_NAME}
+	docker run --rm --name "${IMAGE_NAME}" -d -p 8000:80 ${FULL_IMAGE_NAME}
 }
 
 stop_nginx() {
-	docker stop "${DOCKER_IMAGE_NAME}"
+	docker stop "${IMAGE_NAME}"
 }
 
 cp_bin() {
 	printf "${BLUE}  Copying binaries...${NC}"
 	rm -rf bin
 	mkdir bin
-	docker exec "${DOCKER_IMAGE_NAME}" sh -c "tar -chf - \
+	docker exec "${IMAGE_NAME}" sh -c "tar -chf - \
 		/usr/lib64/nginx/modules/ngx_http_auth_jwt_module.so \
 		/usr/lib/x86_64-linux-gnu/libjansson.so.* \
 		/usr/lib/x86_64-linux-gnu/libjwt.*" 2>/dev/null | tar -xf - -C bin &>/dev/null
 }
 
 build_test_runner() {
-	DOCKER_ARGS=${1:-}
-
-	export CONTAINER_NAME_PREFIX
-	export IMAGE_NAME=${IMAGE_NAME:-${DOCKER_FULL_IMAGE_NAME}}
-	export IMAGE_VERSION=${NGINX_VERSION}
+	local dockerArgs=${1:-}
 
 	printf "${BLUE}  Building test runner...${NC}"
-	docker compose -f ./test/docker-compose-test.yml build ${DOCKER_ARGS}
+	docker compose -f ./test/docker-compose-test.yml build ${dockerArgs}
 }
 
 rebuild_test_runner() {
@@ -72,10 +77,6 @@ rebuild_test_runner() {
 }
 
 test() {
-	export CONTAINER_NAME_PREFIX
-	export IMAGE_NAME=${IMAGE_NAME:-${DOCKER_FULL_IMAGE_NAME}}
-	export IMAGE_VERSION=${NGINX_VERSION}
-
 	printf "${BLUE}  Running tests...${NC}"
 	docker compose -f ./test/docker-compose-test.yml up --no-start
 	docker start ${CONTAINER_NAME_PREFIX}

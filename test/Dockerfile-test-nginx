@@ -1,5 +1,5 @@
 ARG BASE_IMAGE
 
 FROM ${BASE_IMAGE} as NGINX
-COPY test-jwt-nginx.conf /etc/nginx/conf.d/test-jwt-nginx.conf
+COPY test.conf /etc/nginx/conf.d/test.conf
 COPY rsa_key_2048-pub.pem /etc/nginx/rsa-key.conf

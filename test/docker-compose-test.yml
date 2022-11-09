@@ -8,7 +8,7 @@ services:
       context: .
       dockerfile: Dockerfile-test-nginx
       args:
-        BASE_IMAGE: ${IMAGE_NAME}:${IMAGE_VERSION:-latest}
+        BASE_IMAGE: ${FULL_IMAGE_NAME}:${NGINX_VERSION:-latest}
     logging:
       driver: ${LOG_DRIVER:-journald}
 
@@ -18,7 +18,7 @@ services:
       context: .
       dockerfile: Dockerfile-test-runner
     environment:
-      BASE_IMAGE: ${IMAGE_NAME}:${IMAGE_VERSION:-latest}
+      BASE_IMAGE: ${FULL_IMAGE_NAME}:${NGINX_VERSION:-latest}
     
     depends_on:
       - nginx

@@ -10,7 +10,7 @@ run_test () {
   local expect=$3
   local extra=$4
 
-  cmd="curl -X GET -o /dev/null --silent --head --write-out '%{http_code}' http://nginx:8000$path -H 'cache-control: no-cache' $extra"
+  cmd="curl -X GET -o /dev/null --silent --head --write-out '%{http_code}' http://nginx:8000${path} -H 'cache-control: no-cache' $extra"
   result=$(eval ${cmd})
 
   if [ "${result}" -eq "${expect}" ]; then
