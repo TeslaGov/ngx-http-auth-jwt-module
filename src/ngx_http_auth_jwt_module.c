@@ -422,31 +422,42 @@ ngx_http_auth_jwt_create_loc_conf(ngx_conf_t *cf)
 static ngx_int_t
 loadAuthKey(ngx_conf_t *cf, ngx_http_auth_jwt_loc_conf_t* conf) {
 	FILE *keyFile = fopen((const char*)conf->auth_jwt_keyfile_path.data, "rb");
+	unsigned long keySize;
+	unsigned long keySizeRead;
 
 	// Check if file exists or is correctly opened
 	if (keyFile == NULL)
 	{
-		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to open pub key file");
+		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to open public key file");
 		return NGX_ERROR;
 	}
 
 	// Read file length
 	fseek(keyFile, 0, SEEK_END);
-	long keySize = ftell(keyFile);
+	keySize = ftell(keyFile);
 	fseek(keyFile, 0, SEEK_SET);
 	
 	if (keySize == 0)
 	{
-		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "invalid key file size, check the key file");
+		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "invalid public key file size of 0");
 		return NGX_ERROR;
 	}
 
 	conf->_auth_jwt_keyfile.data = ngx_palloc(cf->pool, keySize);
-	fread(conf->_auth_jwt_keyfile.data, 1, keySize, keyFile);
-	conf->_auth_jwt_keyfile.len = (int)keySize;
-
+	keySizeRead = fread(conf->_auth_jwt_keyfile.data, 1, keySize, keyFile);
 	fclose(keyFile);
-	return NGX_OK;
+	
+	if (keySizeRead == keySize)
+	{
+		conf->_auth_jwt_keyfile.len = (int)keySize;
+
+		return NGX_OK;
+	}
+	else {
+		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "public key size %i does not match expected size of %i", keySizeRead, keySize);
+
+		return NGX_ERROR;
+	}
 }
 
 static char *
