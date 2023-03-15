@@ -29,7 +29,7 @@ fetch_headers() {
 build_nginx() {
 	local dockerArgs=${1:-}
 
-	printf "${BLUE}  Building...${NC}"
+	printf "${BLUE}  Building NGINX...${NC}"
 	docker image pull debian:bullseye-slim
 	docker image pull nginx:${NGINX_VERSION}
 	docker image build -t ${FULL_IMAGE_NAME}:latest -t ${FULL_IMAGE_NAME}:${NGINX_VERSION} --build-arg NGINX_VERSION=${NGINX_VERSION} ${dockerArgs} .
@@ -44,10 +44,12 @@ build_nginx() {
 }
 
 rebuild_nginx() {
+	printf "${BLUE}  Rebuilding NGINX...${NC}"
 	build_nginx --no-cache
 }
 
 start_nginx() {
+	printf "${BLUE}  Starting NGINX...${NC}"
 	docker run --rm --name "${IMAGE_NAME}" -d -p 8000:80 ${FULL_IMAGE_NAME}
 }
 
@@ -56,13 +58,17 @@ stop_nginx() {
 }
 
 cp_bin() {
+	if [ "$(docker container inspect -f '{{.State.Running}}' ${IMAGE_NAME})" != "true" ]; then
+		start_nginx
+	fi
+
 	printf "${BLUE}  Copying binaries...${NC}"
 	rm -rf bin
 	mkdir bin
-	docker exec "${IMAGE_NAME}" sh -c "tar -chf - \
-		/usr/lib64/nginx/modules/ngx_http_auth_jwt_module.so \
-		/usr/lib/x86_64-linux-gnu/libjansson.so.* \
-		/usr/lib/x86_64-linux-gnu/libjwt.*" 2>/dev/null | tar -xf - -C bin &>/dev/null
+	docker exec "${IMAGE_NAME}" sh -c "cd /; tar -chf - \
+		usr/lib64/nginx/modules/ngx_http_auth_jwt_module.so \
+		usr/lib/x86_64-linux-gnu/libjansson.so.* \
+		usr/lib/x86_64-linux-gnu/libjwt.*" | tar -xf - -C bin &>/dev/null
 }
 
 build_test_runner() {
