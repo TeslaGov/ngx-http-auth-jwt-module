@@ -73,17 +73,18 @@ This module depends on the [JWT C Library](https://github.com/benmcollins/libjwt
 ## NGINX Directives
 This module requires several new `nginx.conf` directives, which can be specified at the `http`, `server`, or `location` levels.
 
-| Directive                  | Description                                                                                                        |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `auth_jwt_key`             | The key to use to decode/verify the JWT, *in binhex format* -- see below.                                          |
-| `auth_jwt_redirect`        | Set to "on" to redirect to `auth_jwt_loginurl` if authentication fails.                                            |
-| `auth_jwt_loginurl`        | The URL to redirect to if `auth_jwt_redirect` is enabled and authentication fails.                                 |
-| `auth_jwt_enabled`         | Set to "on" to enable JWT checking.                                                                                |
-| `auth_jwt_algorithm`       | The algorithm to use. One of: HS256, HS384, HS512, RS256, RS384, RS512                                             |
-| `auth_jwt_extract_sub`     | Set to "on" to extract the `sub` claim (e.g. user id) from the JWT and into the `x-userid` header on the response. |
-| `auth_jwt_validate_email`  | Set to "on" to extract the `emailAddress` claim from the JWT and into the `x-email` header on the response.        |
-| `auth_jwt_use_keyfile`     | Set to "on" to read the key from a file rather than from the `auth_jwt_key` directive.                             |
-| `auth_jwt_keyfile_path`    | Set to the path from which the key should be read when `auth_jwt_use_keyfile` is enabled.                          |
+| Directive                            | Description                                                                                                                                          |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth_jwt_key`                       | The key to use to decode/verify the JWT, *in binhex format* -- see below.                                                                                                |
+| `auth_jwt_redirect`                  | Set to "on" to redirect to `auth_jwt_loginurl` if authentication fails.                                                                              |
+| `auth_jwt_loginurl`                  | The URL to redirect to if `auth_jwt_redirect` is enabled and authentication fails.                                                                   |
+| `auth_jwt_enabled`                   | Set to "on" to enable JWT checking.                                                                                                                  |
+| `auth_jwt_algorithm`                 | The algorithm to use. One of: HS256, HS384, HS512, RS256, RS384, RS512                                                                               |
+| `auth_jwt_validate_sub`              | Set to "on" to validate the `sub` claim (e.g. user id) in the JWT.                                                                                   |
+| `auth_jwt_extract_request_claims`    | Set to a space-delimited list of claims to extract from the JWT and set as request headers. These will be accessible via e.g: `$http_jwt_sub`        |
+| `auth_jwt_extract_response_claims`   | Set to a space-delimited list of claims to extract from the JWT and set as response headers. These will be accessible via e.g: `$http_sent_jwt_sub`  |
+| `auth_jwt_use_keyfile`               | Set to "on" to read the key from a file rather than from the `auth_jwt_key` directive.                                                               |
+| `auth_jwt_keyfile_path`              | Set to the path from which the key should be read when `auth_jwt_use_keyfile` is enabled.                                                            |
 
 
 The default algorithm is `HS256`, for symmetric key validation. When using one of the `HS*` algorithms, the value for `auth_jwt_key` should be specified in binhex format. It is recommended to use at least 256 bits of data (32 pairs of hex characters or 64 characters in total) as in the example above. Note that using more than 512 bits will not increase the security. For key guidelines please see [NIST Special Publication 800-107 Recommendation for Applications Using Approved Hash Algorithms](https://csrc.nist.gov/publications/detail/sp/800-107/rev-1/final), Section 5.3.2 The HMAC Key.
@@ -130,16 +131,16 @@ value will be set in the `x-userid` HTTP header. An error will be logged if this
 contain the `sub` claim. You may disable this option as follows:
 
 ```
-auth_jwt_extract_sub off
+auth_jwt_validate_sub off
 ```
 
 By default, the module will attempt to validate the email address field of the JWT, then set the x-email header of the
 session, and will log an error if it isn't found. To disable this behavior, for instance if you are using a different
-user identifier property such as `sub`, set `auth_jwt_validate_email` to the value `off`. _Note that this flag may be 
+user identifier property such as `sub`, set `auth_jwt_extract_request_claims` to the value `off`. _Note that this flag may be 
 renamed to `auth_jwt_extract_email` in a future release._ You may disable this option as follows:
 
 ```
-auth_jwt_validate_email off;
+auth_jwt_extract_request_claims off;
 ```
 
 ## Contributing

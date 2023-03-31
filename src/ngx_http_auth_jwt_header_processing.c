@@ -57,39 +57,27 @@ ngx_table_elt_t* search_headers_in(ngx_http_request_t *r, u_char *name, size_t l
 		return &h[i];
 	}
 
-	/* No headers was found */
+	/* No headers found */
 	return NULL;
 }
 
-/**
- * Sample code from nginx
- * https://www.nginx.com/resources/wiki/start/topics/examples/headers_management/#how-can-i-set-a-header
- */
-ngx_int_t set_custom_header_in_headers_out(ngx_http_request_t *r, ngx_str_t *key, ngx_str_t *value) {
-    ngx_table_elt_t   *h;
+ngx_int_t set_request_header(ngx_http_request_t *r, ngx_str_t *key, ngx_str_t *value) {
+	  return set_header(ngx_list_push(&r->headers_in.headers), key, value);
+}
 
-    /*
-    All we have to do is just to allocate the header...
-    */
-    h = ngx_list_push(&r->headers_out.headers);
+ngx_int_t set_response_header(ngx_http_request_t *r, ngx_str_t *key, ngx_str_t *value) {
+	  return set_header(ngx_list_push(&r->headers_out.headers), key, value);
+}
+
+ngx_int_t set_header(ngx_table_elt_t *h, ngx_str_t *key, ngx_str_t *value) {
     if (h == NULL) {
         return NGX_ERROR;
     }
+		else {
+    	h->key = *key;
+    	h->value = *value;
+    	h->hash = 1;
 
-    /*
-    ... setup the header key ...
-    */
-    h->key = *key;
-
-    /*
-    ... and the value.
-    */
-    h->value = *value;
-
-    /*
-    Mark the header as not deleted.
-    */
-    h->hash = 1;
-
-    return NGX_OK;
+    	return NGX_OK;
+		}
 }
