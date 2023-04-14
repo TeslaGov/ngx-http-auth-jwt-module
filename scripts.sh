@@ -110,7 +110,7 @@ get_hash() {
 if [ $# -eq 0 ]; then
 	all
 else
-	for fn in $@; do
-		"$fn"
+	for fn in "$@"; do
+		${fn}
 	done
 fi

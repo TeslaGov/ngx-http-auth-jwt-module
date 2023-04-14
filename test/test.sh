@@ -1,64 +1,83 @@
 #!/bin/bash
 
-RED='\033[01;31m'
-GREEN='\033[01;32m'
-NC='\033[00m'
+# set a test # here to execute only that test and output additional info
+DEBUG=
+
+RED='\e[31m'
+GREEN='\e[32m'
+GRAY='\e[90m'
+NC='\e[00m'
 
 NUM_TESTS=0;
 NUM_FAILED=0;
 
 run_test () {
-  local OPTIND;
-  local name=''
-  local path=''
-  local expectedCode=''
-  local expectedBody=''
-  local extraCurlOpts=''
-  local exitCode=''
-  local response=''
-  local responseCode=''
-  local responseBody=''
+  NUM_TESTS=$((${NUM_TESTS} + 1));
 
-  while getopts "n:p:b:c:x:" option; do
-    case $option in
-    n)
-      name=$OPTARG;;
-    p)
-      path=$OPTARG;;
-    c)
-      expectedCode=$OPTARG;;
-    b)
-      expectedBody=$OPTARG;;
-    x)
-      extraCurlOpts=$OPTARG;;
-    \?) # Invalid option
-      printf "Error: Invalid option\n";
-      exit;;
-    esac
-  done
+  if [ "${DEBUG}" == '' ] || [ ${DEBUG} == ${NUM_TESTS} ]; then
+    local OPTIND;
+    local name=''
+    local path=''
+    local expectedCode=''
+    local expectedBody=''
+    local extraCurlOpts=''
+    local curlCommand=''
+    local exitCode=''
+    local response=''
+    local responseCode=''
+    local responseBody=''
+    local testNum="${GRAY}${NUM_TESTS}${NC}\t"
 
-  response=$(curl -s --write-out '\n%{http_code}' http://nginx:8000${path} -H 'Cache-Control: no-cache' ${extraCurlOpts})
-  exitCode=$?
+    while getopts "n:p:b:c:x:" option; do
+      case $option in
+      n)
+        name=$OPTARG;;
+      p)
+        path=$OPTARG;;
+      c)
+        expectedCode=$OPTARG;;
+      b)
+        expectedBody=$OPTARG;;
+      x)
+        extraCurlOpts=$OPTARG;;
+      \?) # Invalid option
+        printf "Error: Invalid option\n";
+        exit;;
+      esac
+    done
 
-  if [ "${exitCode}" -ne "0" ]; then
-    printf "\n${RED}✘ ${name}\n\tcURL Exit Code: ${exitCode}${NC}\n";
-  else
-    responseCode=$(tail -n1 <<< "${response}")
-    responseBody=$(sed '$ d' <<< "${response}")
-    # printf "responseCode ==> ${responseCode}\n"
-    # printf "responseBody ==> ${responseBody}\n"
-    if [ "${responseCode}" != "${expectedCode}" ]; then
-      printf "\n${RED}✘ ${name} -- unexpected status code\n\tExpected: ${expectedCode}\n\tActual: ${responseCode}\n\tPath: ${path}${NC}\n";
-      NUM_FAILED=$((${NUM_FAILED} + 1));
-    elif [ "${expectedBody}" != "" ] && [ "${responseBody}" != "${expectedBody}" ]; then
-      printf "\n${RED}✘ ${name} -- unexpected response body\n\tPath: ${path}${NC}\n";
+    curlCommand="curl -s --write-out '\n%{http_code}' http://nginx:8000${path} -H 'Cache-Control: no-cache' ${extraCurlOpts}"
+    response=$(eval "${curlCommand}")
+    exitCode=$?
+    
+    printf "\n${testNum}"
+
+    if [ "${exitCode}" -ne "0" ]; then
+      printf "${RED}${name}\n\tcURL Exit Code: ${exitCode}";
       NUM_FAILED=$((${NUM_FAILED} + 1));
     else
-      printf "${GREEN}✔ ${name}${NC}\n";
-    fi
-  fi
+      responseCode=$(tail -n1 <<< "${response}")
+      responseBody=$(sed '$ d' <<< "${response}")
 
-  NUM_TESTS=$((${NUM_TESTS} + 1));
+      if [ "${responseCode}" != "${expectedCode}" ]; then
+        printf "${RED}${name} -- unexpected status code\n\tExpected: ${expectedCode}\n\tActual: ${responseCode}\n\tPath: ${path}";
+        NUM_FAILED=$((${NUM_FAILED} + 1));
+      elif [ "${expectedBody}" != "" ] && [ "${responseBody}" != "${expectedBody}" ]; then
+        printf "${RED}${name} -- unexpected response body\n\tPath: ${path}";
+        NUM_FAILED=$((${NUM_FAILED} + 1));
+      else
+        printf "${GREEN}${name}";
+      fi
+    fi
+
+    if [ "${DEBUG}" == "${NUM_TESTS}" ]; then
+      printf '\n\tcURL Command: %s' "${curlCommand:---}"
+      printf '\n\tResponse Code: %s' "${responseCode:---}"
+      printf '\n\tResponse Body:\n%s' "${responseBody:---}"
+    fi
+
+    printf "${NC}\n"
+  fi
 }
 
 main() {
@@ -80,7 +99,7 @@ main() {
            -p '/secure/auth-header/default' \
            -c '302'
 
-  run_test -n 'when auth enabled with default algorithm with no redirect and Authroization header missing Bearer, should return 401' \
+  run_test -n 'when auth enabled with default algorithm with no redirect and Authorization header missing Bearer, should return 401' \
            -p '/secure/auth-header/default/no-redirect' \
            -c '401' \
            -x '--header "Authorization: X"'
@@ -162,4 +181,8 @@ main() {
   fi
 }
 
-main '$@'
+if [ "${DEBUG}" != '' ]; then
+ printf "\n${RED}Some tests will be skipped since DEBUG is set.${NC}\n"
+fi
+
+main
