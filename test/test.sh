@@ -59,7 +59,7 @@ run_test () {
       responseCode=$(tail -n1 <<< "${response}")
       responseBody=$(sed '$ d' <<< "${response}")
 
-      if [ "${responseCode}" != "${expectedCode}" ]; then
+      if [ "${expectedCode}" != "" ] && [ "${responseCode}" != "${expectedCode}" ]; then
         printf "${RED}${name} -- unexpected status code\n\tExpected: ${expectedCode}\n\tActual: ${responseCode}\n\tPath: ${path}";
         NUM_FAILED=$((${NUM_FAILED} + 1));
       elif [ "${expectedBody}" != "" ] && [ "${responseBody}" != "${expectedBody}" ]; then
@@ -73,7 +73,7 @@ run_test () {
     if [ "${DEBUG}" == "${NUM_TESTS}" ]; then
       printf '\n\tcURL Command: %s' "${curlCommand:---}"
       printf '\n\tResponse Code: %s' "${responseCode:---}"
-      printf '\n\tResponse Body:\n%s' "${responseBody:---}"
+      printf '\n\tResponse Body: %s' "${responseBody:---}"
     fi
 
     printf "${NC}\n"
@@ -168,9 +168,9 @@ main() {
            -x '--header "Authorization: Bearer ${JWT_RS256_VALID}"'
 
   run_test -n 'extracts single claim to request header' \
-           -p '/extract-claim/request/sub' \
-           -c '200' \
-           -b 'dunno'
+           -p '/secure/extract-claim/request/sub' \
+           -b 'sub=TBD' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
   if [[ "${NUM_FAILED}" = '0' ]]; then
     printf "\nRan ${NUM_TESTS} tests successfully.\n"
