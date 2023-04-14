@@ -352,21 +352,21 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		}
 	}
 
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_auth_jwt_handler -- 0");
+	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JSM_DEBUG ngx_http_auth_jwt_handler -- 0");
 	// extract claims and put in request headers
 	if (jwtcf->auth_jwt_extract_request_claims != NULL && jwtcf->auth_jwt_extract_request_claims->nelts > 0)
 	{
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_auth_jwt_handler -- 1 -- %lu", jwtcf->auth_jwt_extract_request_claims->nelts);
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_auth_jwt_handler -- 2");
+	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JSM_DEBUG ngx_http_auth_jwt_handler -- 1 -- %lu", jwtcf->auth_jwt_extract_request_claims->nelts);
+	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JSM_DEBUG ngx_http_auth_jwt_handler -- 2");
 		for (uint i = 0; i < jwtcf->auth_jwt_extract_request_claims->nelts; i++)
 	 	{
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_auth_jwt_handler -- 3");
+	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JSM_DEBUG ngx_http_auth_jwt_handler -- 3");
 			const char* claim = get_ngx_array_element(r->pool, jwtcf->auth_jwt_extract_request_claims->elts, i, jwtcf->auth_jwt_extract_request_claims->size);
 			const char* claimValue = jwt_get_grant(jwt, claim);
 			
 			if (claimValue != NULL)
 			{
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_auth_jwt_handler -- 4");
+	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JSM_DEBUG ngx_http_auth_jwt_handler -- 4");
 				char* claimHeader = "JWT-";
 				ngx_str_t claimValue_t = ngx_char_ptr_to_str_t(r->pool, claimValue);
 				ngx_str_t claimHeader_t;
@@ -376,7 +376,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 
 				set_request_header(r, &claimHeader_t, &claimValue_t);
 			}
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_auth_jwt_handler -- 5");
+	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JSM_DEBUG ngx_http_auth_jwt_handler -- 5");
 		}
 	}
 
