@@ -39,7 +39,7 @@ ngx_str_t ngx_char_ptr_to_str_t(ngx_pool_t *pool, const char* char_ptr)
 char* get_ngx_array_element(ngx_pool_t *pool, ngx_array_t *arr, int offset, int len) {
 	char* char_ptr = ngx_palloc(pool, len);
 
-	ngx_memcpy(&char_ptr, arr + offset, len);
+	ngx_memcpy(char_ptr, arr + (offset * len), len);
 	
 	return char_ptr;
 }
