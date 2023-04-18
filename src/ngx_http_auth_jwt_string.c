@@ -22,7 +22,7 @@ char* ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t str)
 }
 
 /** copies a character pointer string to an nginx string structure */
-ngx_str_t ngx_char_ptr_to_str_t(ngx_pool_t *pool, const char* char_ptr)
+ngx_str_t char_ptr_to_ngx_str_t(ngx_pool_t *pool, const char* char_ptr)
 {
 	const int len = strlen(char_ptr);
 	ngx_str_t str_t;
@@ -36,10 +36,16 @@ ngx_str_t ngx_char_ptr_to_str_t(ngx_pool_t *pool, const char* char_ptr)
 }
 
 /** extracts an element from an ngx_array_t variable */
-char* get_ngx_array_element(ngx_pool_t *pool, ngx_array_t *arr, int offset, int len) {
-	char* char_ptr = ngx_palloc(pool, len);
+char *get_ngx_array_element(ngx_pool_t *pool, ngx_array_t *arr, uint index) {
+	if (arr == NULL || index >= arr->nelts) {
+		return NULL;
+	}
+	else {
+		char *elementPtr = ((char *) arr->elts) + (arr->size * index);
+		char *data = ngx_palloc(pool, arr->size);
+		
+		ngx_memcpy(data, elementPtr, arr->size);
 
-	ngx_memcpy(char_ptr, arr + (offset * len), len);
-	
-	return char_ptr;
+		return data;
+	}
 }

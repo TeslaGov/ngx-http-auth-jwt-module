@@ -20,117 +20,119 @@
 
 #include <stdio.h>
 
-typedef struct {
-	ngx_str_t    auth_jwt_loginurl;
-	ngx_str_t    auth_jwt_key;
-	ngx_flag_t   auth_jwt_enabled;
-	ngx_flag_t   auth_jwt_redirect;
-	ngx_str_t    auth_jwt_validation_type;
-	ngx_str_t    auth_jwt_algorithm;
-	ngx_flag_t   auth_jwt_validate_sub;
-	ngx_array_t  *auth_jwt_extract_request_claims;
-	ngx_str_t    auth_jwt_keyfile_path;
-	ngx_flag_t   auth_jwt_use_keyfile;
-	
-	ngx_str_t    _auth_jwt_keyfile;
+typedef struct
+{
+	ngx_str_t auth_jwt_loginurl;
+	ngx_str_t auth_jwt_key;
+	ngx_flag_t auth_jwt_enabled;
+	ngx_flag_t auth_jwt_redirect;
+	ngx_str_t auth_jwt_validation_type;
+	ngx_str_t auth_jwt_algorithm;
+	ngx_flag_t auth_jwt_validate_sub;
+	ngx_array_t *auth_jwt_extract_request_claims;
+	ngx_str_t auth_jwt_keyfile_path;
+	ngx_flag_t auth_jwt_use_keyfile;
+
+	ngx_str_t _auth_jwt_keyfile;
 } ngx_http_auth_jwt_loc_conf_t;
 
 static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf);
-static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf);
-static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *child);
+static void *ngx_http_auth_jwt_create_conf(ngx_conf_t *cf);
+static char *ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *child);
+static char *merge_extract_request_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *c);
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r);
-static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r);
-static ngx_int_t loadAuthKey(ngx_conf_t *cf, ngx_http_auth_jwt_loc_conf_t* conf);
-static char * getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type);
+static ngx_int_t loadAuthKey(ngx_conf_t *cf, ngx_http_auth_jwt_loc_conf_t *conf);
+static char *getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type);
+
+static char *JWT_HEADER_PREFIX = "JWT-";
 
 static ngx_command_t ngx_http_auth_jwt_commands[] = {
 
-	{ ngx_string("auth_jwt_loginurl"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-		ngx_conf_set_str_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_loginurl),
-		NULL },
+		{ngx_string("auth_jwt_loginurl"),
+		 NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		 ngx_conf_set_str_slot,
+		 NGX_HTTP_LOC_CONF_OFFSET,
+		 offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_loginurl),
+		 NULL},
 
-	{ ngx_string("auth_jwt_key"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-		ngx_conf_set_str_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_key),
-		NULL },
+		{ngx_string("auth_jwt_key"),
+		 NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		 ngx_conf_set_str_slot,
+		 NGX_HTTP_LOC_CONF_OFFSET,
+		 offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_key),
+		 NULL},
 
-	{ ngx_string("auth_jwt_enabled"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
-		ngx_conf_set_flag_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_enabled),
-		NULL },
+		{ngx_string("auth_jwt_enabled"),
+		 NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_FLAG,
+		 ngx_conf_set_flag_slot,
+		 NGX_HTTP_LOC_CONF_OFFSET,
+		 offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_enabled),
+		 NULL},
 
-	{ ngx_string("auth_jwt_redirect"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
-		ngx_conf_set_flag_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_redirect),
-		NULL },
+		{ngx_string("auth_jwt_redirect"),
+		 NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_FLAG,
+		 ngx_conf_set_flag_slot,
+		 NGX_HTTP_LOC_CONF_OFFSET,
+		 offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_redirect),
+		 NULL},
 
-	{ ngx_string("auth_jwt_validation_type"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-		ngx_conf_set_str_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_validation_type),
-		NULL },
+		{ngx_string("auth_jwt_validation_type"),
+		 NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		 ngx_conf_set_str_slot,
+		 NGX_HTTP_LOC_CONF_OFFSET,
+		 offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_validation_type),
+		 NULL},
 
-	{ ngx_string("auth_jwt_algorithm"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-		ngx_conf_set_str_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_algorithm),
-		NULL },
+		{ngx_string("auth_jwt_algorithm"),
+		 NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		 ngx_conf_set_str_slot,
+		 NGX_HTTP_LOC_CONF_OFFSET,
+		 offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_algorithm),
+		 NULL},
 
-	{ ngx_string("auth_jwt_validate_sub"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
-		ngx_conf_set_flag_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_validate_sub),
-		NULL },
+		{ngx_string("auth_jwt_validate_sub"),
+		 NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_FLAG,
+		 ngx_conf_set_flag_slot,
+		 NGX_HTTP_LOC_CONF_OFFSET,
+		 offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_validate_sub),
+		 NULL},
 
-	{ ngx_string("auth_jwt_extract_request_claims"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
-		ngx_conf_set_str_array_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_extract_request_claims),
-		NULL },
+		{ngx_string("auth_jwt_extract_request_claims"),
+		 NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_1MORE,
+		 merge_extract_request_claims,
+		 NGX_HTTP_LOC_CONF_OFFSET,
+		 offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_extract_request_claims),
+		 NULL},
 
-	// { ngx_string("auth_jwt_extract_response_claims"),
-	// 	NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
-	// 	ngx_conf_set_str_array_slot,
-	// 	NGX_HTTP_LOC_CONF_OFFSET,
-	// 	offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_extract_response_claims),
-	// 	NULL },
+		// { ngx_string("auth_jwt_extract_response_claims"),
+		// 	NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
+		// 	ngx_conf_set_str_array_slot,
+		// 	NGX_HTTP_LOC_CONF_OFFSET,
+		// 	offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_extract_response_claims),
+		// 	NULL },
 
-	{ ngx_string("auth_jwt_keyfile_path"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-		ngx_conf_set_str_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_keyfile_path),
-		NULL },
+		{ngx_string("auth_jwt_keyfile_path"),
+		 NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		 ngx_conf_set_str_slot,
+		 NGX_HTTP_LOC_CONF_OFFSET,
+		 offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_keyfile_path),
+		 NULL},
 
-	{ ngx_string("auth_jwt_use_keyfile"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
-		ngx_conf_set_flag_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_use_keyfile),
-		NULL },
+		{ngx_string("auth_jwt_use_keyfile"),
+		 NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_FLAG,
+		 ngx_conf_set_flag_slot,
+		 NGX_HTTP_LOC_CONF_OFFSET,
+		 offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_use_keyfile),
+		 NULL},
 
-	ngx_null_command
-};
+		ngx_null_command};
 
 static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf)
 {
-	ngx_http_core_main_conf_t  *cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
-	ngx_http_handler_pt        *h = ngx_array_push(&cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers);
+	ngx_http_core_main_conf_t *cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
+	ngx_http_handler_pt *h = ngx_array_push(&cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers);
 
-	if (h == NULL) 
+	if (h == NULL)
 	{
 		return NGX_ERROR;
 	}
@@ -142,11 +144,11 @@ static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf)
 	}
 }
 
-static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf)
+static void *ngx_http_auth_jwt_create_conf(ngx_conf_t *cf)
 {
 	ngx_http_auth_jwt_loc_conf_t *conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_auth_jwt_loc_conf_t));
 
-	if (conf == NULL) 
+	if (conf == NULL)
 	{
 		return NULL;
 	}
@@ -158,14 +160,14 @@ static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf)
 		conf->auth_jwt_validate_sub = NGX_CONF_UNSET;
 		conf->auth_jwt_redirect = NGX_CONF_UNSET;
 		conf->auth_jwt_validate_sub = NGX_CONF_UNSET;
-		conf->auth_jwt_extract_request_claims = NGX_CONF_UNSET_PTR;
+		conf->auth_jwt_extract_request_claims = NULL;
 		conf->auth_jwt_use_keyfile = NGX_CONF_UNSET;
-		
+
 		return conf;
 	}
 }
 
-static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *child)
+static char *ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 {
 	ngx_http_auth_jwt_loc_conf_t *prev = parent;
 	ngx_http_auth_jwt_loc_conf_t *conf = child;
@@ -177,8 +179,8 @@ static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *c
 	ngx_conf_merge_str_value(conf->auth_jwt_keyfile_path, prev->auth_jwt_keyfile_path, "");
 	ngx_conf_merge_off_value(conf->auth_jwt_validate_sub, prev->auth_jwt_validate_sub, 1);
 	ngx_conf_merge_ptr_value(conf->auth_jwt_extract_request_claims, prev->auth_jwt_extract_request_claims, NULL);
-	
-	if (conf->auth_jwt_enabled == NGX_CONF_UNSET) 
+
+	if (conf->auth_jwt_enabled == NGX_CONF_UNSET)
 	{
 		conf->auth_jwt_enabled = prev->auth_jwt_enabled == NGX_CONF_UNSET ? 0 : prev->auth_jwt_enabled;
 	}
@@ -214,37 +216,59 @@ static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *c
 	return NGX_CONF_OK;
 }
 
-static ngx_http_module_t ngx_http_auth_jwt_module_ctx = {
-	NULL,                        				/* preconfiguration */
-	ngx_http_auth_jwt_init,      				/* postconfiguration */
-	NULL,                        				/* create main configuration */
-	NULL,                        				/* init main configuration */
-	NULL,                        				/* create server configuration */
-	NULL,                        				/* merge server configuration */
-	ngx_http_auth_jwt_create_conf,	/* create location configuration */
-	ngx_http_auth_jwt_merge_conf 		/* merge location configuration */
-};
+static char *merge_extract_request_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *c)
+{
+	ngx_http_auth_jwt_loc_conf_t *conf = c;
+	ngx_array_t *claims = conf->auth_jwt_extract_request_claims;
+	ngx_str_t *values = cf->args->elts;
 
+	if (claims == NULL)
+	{
+		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "merge_extract_request_claims -- 2 -- creating array");
+		claims = ngx_array_create(cf->pool, 1, sizeof(ngx_str_t));
+		conf->auth_jwt_extract_request_claims = claims;
+	}
+
+	// start at 1 because the first element is the directive (auth_jwt_extract_X_claims)
+	for (ngx_uint_t i = 1; i < cf->args->nelts; i++)
+	{
+		ngx_str_t *element = ngx_array_push(claims);
+
+		*element = values[i];
+	}
+
+	return NGX_CONF_OK;
+}
+
+static ngx_http_module_t ngx_http_auth_jwt_module_ctx = {
+		NULL,													 /* preconfiguration */
+		ngx_http_auth_jwt_init,				 /* postconfiguration */
+		NULL,													 /* create main configuration */
+		NULL,													 /* init main configuration */
+		NULL,													 /* create server configuration */
+		NULL,													 /* merge server configuration */
+		ngx_http_auth_jwt_create_conf, /* create location configuration */
+		ngx_http_auth_jwt_merge_conf	 /* merge location configuration */
+};
 
 ngx_module_t ngx_http_auth_jwt_module = {
-	NGX_MODULE_V1,
-	&ngx_http_auth_jwt_module_ctx,     /* module context */
-	ngx_http_auth_jwt_commands,        /* module directives */
-	NGX_HTTP_MODULE,                   /* module type */
-	NULL,                              /* init master */
-	NULL,                              /* init module */
-	NULL,                              /* init process */
-	NULL,                              /* init thread */
-	NULL,                              /* exit thread */
-	NULL,                              /* exit process */
-	NULL,                              /* exit master */
-	NGX_MODULE_V1_PADDING
-};
+		NGX_MODULE_V1,
+		&ngx_http_auth_jwt_module_ctx, /* module context */
+		ngx_http_auth_jwt_commands,		 /* module directives */
+		NGX_HTTP_MODULE,							 /* module type */
+		NULL,													 /* init master */
+		NULL,													 /* init module */
+		NULL,													 /* init process */
+		NULL,													 /* init thread */
+		NULL,													 /* exit thread */
+		NULL,													 /* exit process */
+		NULL,													 /* exit master */
+		NGX_MODULE_V1_PADDING};
 
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 {
-	char* jwtPtr;
-	char* return_url;
+	char *jwtPtr;
+	char *return_url;
 	ngx_http_auth_jwt_loc_conf_t *jwtcf;
 	u_char *keyBinary;
 	// For clearing it later on
@@ -255,10 +279,10 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	time_t now;
 	ngx_str_t auth_jwt_algorithm;
 	int keylen;
-	
+
 	jwtcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
-	
-	if (!jwtcf->auth_jwt_enabled) 
+
+	if (!jwtcf->auth_jwt_enabled)
 	{
 		return NGX_DECLINED;
 	}
@@ -268,7 +292,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	{
 		return NGX_DECLINED;
 	}
-	
+
 	jwtPtr = getJwt(r, jwtcf->auth_jwt_validation_type);
 
 	if (jwtPtr == NULL)
@@ -276,7 +300,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a JWT");
 		goto redirect;
 	}
-	
+
 	// convert key from hex to binary, if a symmetric key
 
 	auth_jwt_algorithm = jwtcf->auth_jwt_algorithm;
@@ -291,14 +315,14 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 			goto redirect;
 		}
 	}
-	else if ( auth_jwt_algorithm.len == 5 && ngx_strncmp(auth_jwt_algorithm.data, "RS", 2) == 0 )
+	else if (auth_jwt_algorithm.len == 5 && ngx_strncmp(auth_jwt_algorithm.data, "RS", 2) == 0)
 	{
 		// in this case, 'Binary' is a misnomer, as it is the public key string itself
 		if (jwtcf->auth_jwt_use_keyfile == 1)
 		{
 			// Set to global variables
 			// NOTE: check for keyBin == NULL skipped, unnecessary check; nginx should fail to start
-			keyBinary = (u_char*)jwtcf->_auth_jwt_keyfile.data;
+			keyBinary = (u_char *)jwtcf->_auth_jwt_keyfile.data;
 			keylen = jwtcf->_auth_jwt_keyfile.len;
 		}
 		else
@@ -312,7 +336,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "unsupported algorithm %s", auth_jwt_algorithm);
 		goto redirect;
 	}
-	
+
 	// validate the jwt
 	jwtParseReturnCode = jwt_decode(&jwt, jwtPtr, keyBinary, keylen);
 
@@ -321,7 +345,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to parse JWT, error code %d", jwtParseReturnCode);
 		goto redirect;
 	}
-	
+
 	// validate the algorithm
 	alg = jwt_get_alg(jwt);
 
@@ -330,7 +354,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "invalid algorithm in JWT (%d)", alg);
 		goto redirect;
 	}
-	
+
 	// validate the exp date of the JWT
 	exp = (time_t)jwt_get_grant_int(jwt, "exp");
 	now = time(NULL);
@@ -344,7 +368,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	// TODO validate claims
 	if (jwtcf->auth_jwt_validate_sub == 1)
 	{
-		const char* sub = jwt_get_grant(jwt, "sub");
+		const char *sub = jwt_get_grant(jwt, "sub");
 
 		if (sub == NULL)
 		{
@@ -352,131 +376,129 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		}
 	}
 
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JSM_DEBUG ngx_http_auth_jwt_handler -- 0");
 	// extract claims and put in request headers
 	if (jwtcf->auth_jwt_extract_request_claims != NULL && jwtcf->auth_jwt_extract_request_claims->nelts > 0)
 	{
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JSM_DEBUG ngx_http_auth_jwt_handler -- 1 -- %lu", jwtcf->auth_jwt_extract_request_claims->nelts);
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JSM_DEBUG ngx_http_auth_jwt_handler -- 2");
+		ngx_str_t *claims = jwtcf->auth_jwt_extract_request_claims->elts;
+
 		for (uint i = 0; i < jwtcf->auth_jwt_extract_request_claims->nelts; i++)
-	 	{
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JSM_DEBUG ngx_http_auth_jwt_handler -- 3");
-			const char* claim = get_ngx_array_element(r->pool, jwtcf->auth_jwt_extract_request_claims->elts, i, jwtcf->auth_jwt_extract_request_claims->size);
-			const char* claimValue = jwt_get_grant(jwt, claim);
-			
-			if (claimValue != NULL)
+		{
+			ngx_str_t claim = claims[i];
+			const char *value = jwt_get_grant(jwt, (char *)claim.data);
+
+			if (value != NULL && strlen(value) > 0)
 			{
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JSM_DEBUG ngx_http_auth_jwt_handler -- 4");
-				char* claimHeader = "JWT-";
-				ngx_str_t claimValue_t = ngx_char_ptr_to_str_t(r->pool, claimValue);
-				ngx_str_t claimHeader_t;
+				ngx_uint_t claimHeaderLen = strlen(JWT_HEADER_PREFIX) + claim.len;
+				u_char *claimHeaderBuf = ngx_palloc(r->pool, claimHeaderLen);
+				ngx_str_t claimHeader = ngx_null_string;
+				ngx_str_t claimValue = char_ptr_to_ngx_str_t(r->pool, value);
 
-				strcat(claimHeader, claim);
-				claimHeader_t = ngx_char_ptr_to_str_t(r->pool, claimHeader);
+				ngx_snprintf(claimHeaderBuf, claimHeaderLen, "%s%V", JWT_HEADER_PREFIX, &claim);
+				claimHeader.len = claimHeaderLen;
+				claimHeader.data = claimHeaderBuf;
 
-				set_request_header(r, &claimHeader_t, &claimValue_t);
+				set_request_header(r, &claimHeader, &claimValue);
 			}
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JSM_DEBUG ngx_http_auth_jwt_handler -- 5");
 		}
 	}
 
 	jwt_free(jwt);
-	
+
 	return NGX_OK;
-	
-	redirect:
-		if (jwt)
+
+redirect:
+	if (jwt)
+	{
+		jwt_free(jwt);
+	}
+
+	if (jwtcf->auth_jwt_redirect)
+	{
+		r->headers_out.location = ngx_list_push(&r->headers_out.headers);
+
+		if (r->headers_out.location == NULL)
 		{
-			jwt_free(jwt);
+			ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
 		}
 
-		if (jwtcf->auth_jwt_redirect)
+		r->headers_out.location->hash = 1;
+		r->headers_out.location->key.len = sizeof("Location") - 1;
+		r->headers_out.location->key.data = (u_char *)"Location";
+
+		if (r->method == NGX_HTTP_GET)
 		{
-			r->headers_out.location = ngx_list_push(&r->headers_out.headers);
+			int loginlen;
+			char *scheme;
+			ngx_str_t server;
+			ngx_str_t uri_variable_name = ngx_string("request_uri");
+			ngx_int_t uri_variable_hash;
+			ngx_http_variable_value_t *request_uri_var;
+			ngx_str_t uri;
+			ngx_str_t uri_escaped;
+			uintptr_t escaped_len;
 
-			if (r->headers_out.location == NULL)
+			loginlen = jwtcf->auth_jwt_loginurl.len;
+			scheme = (r->connection->ssl) ? "https" : "http";
+			server = r->headers_in.server;
+
+			// get the URI
+			uri_variable_hash = ngx_hash_key(uri_variable_name.data, uri_variable_name.len);
+			request_uri_var = ngx_http_get_variable(r, &uri_variable_name, uri_variable_hash);
+
+			// get the URI
+			if (request_uri_var && !request_uri_var->not_found && request_uri_var->valid)
 			{
-				ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
-			}
-
-			r->headers_out.location->hash = 1;
-			r->headers_out.location->key.len = sizeof("Location") - 1;
-			r->headers_out.location->key.data = (u_char *) "Location";
-
-			if (r->method == NGX_HTTP_GET)
-			{
-				int loginlen;
-				char * scheme;
-				ngx_str_t server;
-				ngx_str_t uri_variable_name = ngx_string("request_uri");
-				ngx_int_t uri_variable_hash;
-				ngx_http_variable_value_t * request_uri_var;
-				ngx_str_t uri;
-				ngx_str_t uri_escaped;
-				uintptr_t escaped_len;
-
-				loginlen = jwtcf->auth_jwt_loginurl.len;
-				scheme = (r->connection->ssl) ? "https" : "http";
-				server = r->headers_in.server;
-
-				// get the URI
-				uri_variable_hash = ngx_hash_key(uri_variable_name.data, uri_variable_name.len);
-				request_uri_var = ngx_http_get_variable(r, &uri_variable_name, uri_variable_hash);
-
-				// get the URI
-				if(request_uri_var && !request_uri_var->not_found && request_uri_var->valid)
-				{
-					// ideally we would like the uri with the querystring parameters
-					uri.data = ngx_palloc(r->pool, request_uri_var->len);
-					uri.len = request_uri_var->len;
-					ngx_memcpy(uri.data, request_uri_var->data, request_uri_var->len);
-				}
-				else
-				{
-					// fallback to the querystring without params
-					uri = r->uri;
-				}
-
-				// escape the URI
-				escaped_len = 2 * ngx_escape_uri(NULL, uri.data, uri.len, NGX_ESCAPE_ARGS) + uri.len;
-				uri_escaped.data = ngx_palloc(r->pool, escaped_len);
-				uri_escaped.len = escaped_len;
-				ngx_escape_uri(uri_escaped.data, uri.data, uri.len, NGX_ESCAPE_ARGS);
-
-				r->headers_out.location->value.len = loginlen + sizeof("?return_url=") - 1 + strlen(scheme) + sizeof("://") - 1 + server.len + uri_escaped.len;
-				return_url = ngx_palloc(r->pool, r->headers_out.location->value.len);
-				ngx_memcpy(return_url, jwtcf->auth_jwt_loginurl.data, jwtcf->auth_jwt_loginurl.len);
-				int return_url_idx = jwtcf->auth_jwt_loginurl.len;
-				ngx_memcpy(return_url+return_url_idx, "?return_url=", sizeof("?return_url=") - 1);
-				return_url_idx += sizeof("?return_url=") - 1;
-				ngx_memcpy(return_url+return_url_idx, scheme, strlen(scheme));
-				return_url_idx += strlen(scheme);
-				ngx_memcpy(return_url+return_url_idx, "://", sizeof("://") - 1);
-				return_url_idx += sizeof("://") - 1;
-				ngx_memcpy(return_url+return_url_idx, server.data, server.len);
-				return_url_idx += server.len;
-				ngx_memcpy(return_url+return_url_idx, uri_escaped.data, uri_escaped.len);
-				return_url_idx += uri_escaped.len;
-				r->headers_out.location->value.data = (u_char *)return_url;
+				// ideally we would like the uri with the querystring parameters
+				uri.data = ngx_palloc(r->pool, request_uri_var->len);
+				uri.len = request_uri_var->len;
+				ngx_memcpy(uri.data, request_uri_var->data, request_uri_var->len);
 			}
 			else
 			{
-				// for non-get requests, redirect to the login page without a return URL
-				r->headers_out.location->value.len = jwtcf->auth_jwt_loginurl.len;
-				r->headers_out.location->value.data = jwtcf->auth_jwt_loginurl.data;
+				// fallback to the querystring without params
+				uri = r->uri;
 			}
 
-			return NGX_HTTP_MOVED_TEMPORARILY;
+			// escape the URI
+			escaped_len = 2 * ngx_escape_uri(NULL, uri.data, uri.len, NGX_ESCAPE_ARGS) + uri.len;
+			uri_escaped.data = ngx_palloc(r->pool, escaped_len);
+			uri_escaped.len = escaped_len;
+			ngx_escape_uri(uri_escaped.data, uri.data, uri.len, NGX_ESCAPE_ARGS);
+
+			r->headers_out.location->value.len = loginlen + sizeof("?return_url=") - 1 + strlen(scheme) + sizeof("://") - 1 + server.len + uri_escaped.len;
+			return_url = ngx_palloc(r->pool, r->headers_out.location->value.len);
+			ngx_memcpy(return_url, jwtcf->auth_jwt_loginurl.data, jwtcf->auth_jwt_loginurl.len);
+			int return_url_idx = jwtcf->auth_jwt_loginurl.len;
+			ngx_memcpy(return_url + return_url_idx, "?return_url=", sizeof("?return_url=") - 1);
+			return_url_idx += sizeof("?return_url=") - 1;
+			ngx_memcpy(return_url + return_url_idx, scheme, strlen(scheme));
+			return_url_idx += strlen(scheme);
+			ngx_memcpy(return_url + return_url_idx, "://", sizeof("://") - 1);
+			return_url_idx += sizeof("://") - 1;
+			ngx_memcpy(return_url + return_url_idx, server.data, server.len);
+			return_url_idx += server.len;
+			ngx_memcpy(return_url + return_url_idx, uri_escaped.data, uri_escaped.len);
+			return_url_idx += uri_escaped.len;
+			r->headers_out.location->value.data = (u_char *)return_url;
+		}
+		else
+		{
+			// for non-get requests, redirect to the login page without a return URL
+			r->headers_out.location->value.len = jwtcf->auth_jwt_loginurl.len;
+			r->headers_out.location->value.data = jwtcf->auth_jwt_loginurl.data;
 		}
 
-		// When no redirect is needed, no "Location" header construction is needed, and we can respond with a 401
-		return NGX_HTTP_UNAUTHORIZED;
+		return NGX_HTTP_MOVED_TEMPORARILY;
+	}
+
+	// When no redirect is needed, no "Location" header construction is needed, and we can respond with a 401
+	return NGX_HTTP_UNAUTHORIZED;
 }
 
 // Loads the RSA256 public key into the location config struct
-static ngx_int_t loadAuthKey(ngx_conf_t *cf, ngx_http_auth_jwt_loc_conf_t* conf)
+static ngx_int_t loadAuthKey(ngx_conf_t *cf, ngx_http_auth_jwt_loc_conf_t *conf)
 {
-	FILE *keyFile = fopen((const char*)conf->auth_jwt_keyfile_path.data, "rb");
+	FILE *keyFile = fopen((const char *)conf->auth_jwt_keyfile_path.data, "rb");
 	unsigned long keySize;
 	unsigned long keySizeRead;
 
@@ -484,7 +506,7 @@ static ngx_int_t loadAuthKey(ngx_conf_t *cf, ngx_http_auth_jwt_loc_conf_t* conf)
 	if (keyFile == NULL)
 	{
 		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to open public key file");
-		
+
 		return NGX_ERROR;
 	}
 
@@ -492,7 +514,7 @@ static ngx_int_t loadAuthKey(ngx_conf_t *cf, ngx_http_auth_jwt_loc_conf_t* conf)
 	fseek(keyFile, 0, SEEK_END);
 	keySize = ftell(keyFile);
 	fseek(keyFile, 0, SEEK_SET);
-	
+
 	if (keySize == 0)
 	{
 		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "invalid public key file size of 0");
@@ -503,7 +525,7 @@ static ngx_int_t loadAuthKey(ngx_conf_t *cf, ngx_http_auth_jwt_loc_conf_t* conf)
 	conf->_auth_jwt_keyfile.data = ngx_palloc(cf->pool, keySize);
 	keySizeRead = fread(conf->_auth_jwt_keyfile.data, 1, keySize, keyFile);
 	fclose(keyFile);
-	
+
 	if (keySizeRead == keySize)
 	{
 		conf->_auth_jwt_keyfile.len = (int)keySize;
@@ -518,11 +540,11 @@ static ngx_int_t loadAuthKey(ngx_conf_t *cf, ngx_http_auth_jwt_loc_conf_t* conf)
 	}
 }
 
-static char * getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type)
+static char *getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type)
 {
 	static const ngx_str_t authorizationHeaderName = ngx_string("Authorization");
 	ngx_table_elt_t *authorizationHeader;
-	char* jwtPtr = NULL;
+	char *jwtPtr = NULL;
 	ngx_str_t jwtCookieVal;
 	ngx_int_t n;
 	ngx_int_t bearer_length;
@@ -530,18 +552,18 @@ static char * getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type)
 
 	ngx_log_debug(NGX_LOG_DEBUG, r->connection->log, 0, "auth_jwt_validation_type.len %d", auth_jwt_validation_type.len);
 
-	if (auth_jwt_validation_type.len == 0 || (auth_jwt_validation_type.len == sizeof("AUTHORIZATION") - 1 && ngx_strncmp(auth_jwt_validation_type.data, "AUTHORIZATION", sizeof("AUTHORIZATION") - 1)==0))
+	if (auth_jwt_validation_type.len == 0 || (auth_jwt_validation_type.len == sizeof("AUTHORIZATION") - 1 && ngx_strncmp(auth_jwt_validation_type.data, "AUTHORIZATION", sizeof("AUTHORIZATION") - 1) == 0))
 	{
 		// using authorization header
 		authorizationHeader = search_headers_in(r, authorizationHeaderName.data, authorizationHeaderName.len);
-		
+
 		if (authorizationHeader != NULL)
 		{
 			ngx_log_debug(NGX_LOG_DEBUG, r->connection->log, 0, "Found authorization header len %d", authorizationHeader->value.len);
 
 			bearer_length = authorizationHeader->value.len - (sizeof("Bearer ") - 1);
 
-			if (bearer_length > 0) 
+			if (bearer_length > 0)
 			{
 				authorizationHeaderStr.data = authorizationHeader->value.data + sizeof("Bearer ") - 1;
 				authorizationHeaderStr.len = bearer_length;
@@ -552,7 +574,7 @@ static char * getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type)
 			}
 		}
 	}
-	else if (auth_jwt_validation_type.len > sizeof("COOKIE=") && ngx_strncmp(auth_jwt_validation_type.data, "COOKIE=", sizeof("COOKIE=") - 1)==0)
+	else if (auth_jwt_validation_type.len > sizeof("COOKIE=") && ngx_strncmp(auth_jwt_validation_type.data, "COOKIE=", sizeof("COOKIE=") - 1) == 0)
 	{
 		auth_jwt_validation_type.data += sizeof("COOKIE=") - 1;
 		auth_jwt_validation_type.len -= sizeof("COOKIE=") - 1;
@@ -560,7 +582,7 @@ static char * getJwt(ngx_http_request_t *r, ngx_str_t auth_jwt_validation_type)
 		// get the cookie
 		// TODO: the cookie name could be passed in dynamicallly
 		n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &auth_jwt_validation_type, &jwtCookieVal);
-		if (n != NGX_DECLINED) 
+		if (n != NGX_DECLINED)
 		{
 			jwtPtr = ngx_str_t_to_char_ptr(r->pool, jwtCookieVal);
 		}

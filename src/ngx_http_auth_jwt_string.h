@@ -13,7 +13,7 @@
 #include <ngx_core.h>
 
 char* ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t str);
-ngx_str_t ngx_char_ptr_to_str_t(ngx_pool_t *pool, const char* char_ptr);
-char* get_ngx_array_element(ngx_pool_t *pool, ngx_array_t *arr, int offset, int len);
+ngx_str_t char_ptr_to_ngx_str_t(ngx_pool_t *pool, const char* char_ptr);
+char *get_ngx_array_element(ngx_pool_t *pool, ngx_array_t *arr, uint index);
 
 #endif /* _NGX_HTTP_AUTH_JWT_STRING_H */

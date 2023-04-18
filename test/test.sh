@@ -9,6 +9,7 @@ GRAY='\e[90m'
 NC='\e[00m'
 
 NUM_TESTS=0;
+NUM_SKIPPED=0;
 NUM_FAILED=0;
 
 run_test () {
@@ -19,16 +20,14 @@ run_test () {
     local name=''
     local path=''
     local expectedCode=''
-    local expectedBody=''
+    local expectedResponseRegex=''
     local extraCurlOpts=''
     local curlCommand=''
     local exitCode=''
     local response=''
-    local responseCode=''
-    local responseBody=''
     local testNum="${GRAY}${NUM_TESTS}${NC}\t"
 
-    while getopts "n:p:b:c:x:" option; do
+    while getopts "n:p:r:c:x:" option; do
       case $option in
       n)
         name=$OPTARG;;
@@ -36,8 +35,8 @@ run_test () {
         path=$OPTARG;;
       c)
         expectedCode=$OPTARG;;
-      b)
-        expectedBody=$OPTARG;;
+      r)
+        expectedResponseRegex=$OPTARG;;
       x)
         extraCurlOpts=$OPTARG;;
       \?) # Invalid option
@@ -46,7 +45,7 @@ run_test () {
       esac
     done
 
-    curlCommand="curl -s --write-out '\n%{http_code}' http://nginx:8000${path} -H 'Cache-Control: no-cache' ${extraCurlOpts}"
+    curlCommand="curl -s -v http://nginx:8000${path} -H 'Cache-Control: no-cache' ${extraCurlOpts} 2>&1"
     response=$(eval "${curlCommand}")
     exitCode=$?
     
@@ -56,27 +55,37 @@ run_test () {
       printf "${RED}${name}\n\tcURL Exit Code: ${exitCode}";
       NUM_FAILED=$((${NUM_FAILED} + 1));
     else
-      responseCode=$(tail -n1 <<< "${response}")
-      responseBody=$(sed '$ d' <<< "${response}")
+      OKAY=1
 
-      if [ "${expectedCode}" != "" ] && [ "${responseCode}" != "${expectedCode}" ]; then
-        printf "${RED}${name} -- unexpected status code\n\tExpected: ${expectedCode}\n\tActual: ${responseCode}\n\tPath: ${path}";
-        NUM_FAILED=$((${NUM_FAILED} + 1));
-      elif [ "${expectedBody}" != "" ] && [ "${responseBody}" != "${expectedBody}" ]; then
-        printf "${RED}${name} -- unexpected response body\n\tPath: ${path}";
-        NUM_FAILED=$((${NUM_FAILED} + 1));
-      else
+      if [ "${expectedCode}" != "" ]; then
+        local responseCode=$(echo "${response}" | grep -Eo 'HTTP/1.1 ([0-9]{3})' | awk '{print $2}')
+
+        if [ "${expectedCode}" != "${responseCode}" ]; then
+          printf "${RED}${name} -- unexpected status code\n\tExpected: ${expectedCode}\n\tActual: ${responseCode}\n\tPath: ${path}"
+          NUM_FAILED=$((${NUM_FAILED} + 1))
+          OKAY=0
+        fi
+      fi
+
+      if [ "${OKAY}" == "1" ] && [ "${expectedResponseRegex}" != "" ] && echo "${response}" | grep -Eq "${expectedResponseRegex}"; then
+        printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex}"
+        NUM_FAILED=$((${NUM_FAILED} + 1))
+        OKAY=0
+      fi
+      
+      if [ "${OKAY}" == "1" ]; then
         printf "${GREEN}${name}";
       fi
     fi
 
     if [ "${DEBUG}" == "${NUM_TESTS}" ]; then
       printf '\n\tcURL Command: %s' "${curlCommand:---}"
-      printf '\n\tResponse Code: %s' "${responseCode:---}"
-      printf '\n\tResponse Body: %s' "${responseBody:---}"
+      printf '\n\tResponse: %s' "${response:---}"
     fi
 
     printf "${NC}\n"
+  else
+    NUM_SKIPPED=$((${NUM_SKIPPED} + 1))
   fi
 }
 
@@ -169,14 +178,24 @@ main() {
 
   run_test -n 'extracts single claim to request header' \
            -p '/secure/extract-claim/request/sub' \
-           -b 'sub=TBD' \
+           -r '^Test: sub=some-long-uuid$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts multiple claims (single directive) to request header' \
+           -p '/secure/extract-claim/request/name-1' \
+           -r '^Test: hello world$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts multiple claims (multiple directives) to request header' \
+           -p '/secure/extract-claim/request/name-2' \
+           -r '^Test: hello world$' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
   if [[ "${NUM_FAILED}" = '0' ]]; then
-    printf "\nRan ${NUM_TESTS} tests successfully.\n"
+    printf "\nRan ${NUM_TESTS} tests successfully (skipped ${NUM_SKIPPED}).\n"
     return 0
   else
-    printf "\nRan ${NUM_TESTS} tests: ${GREEN}$((${NUM_TESTS} - ${NUM_FAILED})) passed${NC}; ${RED}${NUM_FAILED} failed${NC}\n"
+    printf "\nRan ${NUM_TESTS} tests: ${GREEN}$((${NUM_TESTS} - ${NUM_FAILED})) passed${NC}; ${RED}${NUM_FAILED} failed${NC}; ${NUM_SKIPPED} skipped\n"
     return 1
   fi
 }
