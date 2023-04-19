@@ -30,6 +30,7 @@ typedef struct
 	ngx_str_t auth_jwt_algorithm;
 	ngx_flag_t auth_jwt_validate_sub;
 	ngx_array_t *auth_jwt_extract_request_claims;
+	ngx_array_t *auth_jwt_extract_response_claims;
 	ngx_str_t auth_jwt_keyfile_path;
 	ngx_flag_t auth_jwt_use_keyfile;
 	ngx_str_t _auth_jwt_keyfile;
@@ -39,11 +40,13 @@ static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf);
 static void *ngx_http_auth_jwt_create_conf(ngx_conf_t *cf);
 static char *ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *child);
 static char *merge_extract_request_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *c);
+static char *merge_extract_response_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *c);
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r);
 static int validate_alg(ngx_http_auth_jwt_loc_conf_t *jwtcf, jwt_t *jwt);
 static int validate_exp(ngx_http_auth_jwt_loc_conf_t *jwtcf, jwt_t *jwt);
 static int validate_sub(ngx_http_auth_jwt_loc_conf_t *jwtcf, jwt_t *jwt);
 static void extract_request_claims(ngx_http_request_t *r, ngx_http_auth_jwt_loc_conf_t *jwtcf, jwt_t *jwt);
+static void extract_response_claims(ngx_http_request_t *r, ngx_http_auth_jwt_loc_conf_t *jwtcf, jwt_t *jwt);
 static ngx_int_t free_jwt_and_redirect(ngx_http_request_t *r, ngx_http_auth_jwt_loc_conf_t *jwtcf, jwt_t *jwt);
 static ngx_int_t redirect(ngx_http_request_t *r, ngx_http_auth_jwt_loc_conf_t *jwtcf);
 static ngx_int_t load_public_key(ngx_conf_t *cf, ngx_http_auth_jwt_loc_conf_t *conf);
@@ -106,6 +109,13 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
 		 merge_extract_request_claims,
 		 NGX_HTTP_LOC_CONF_OFFSET,
 		 offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_extract_request_claims),
+		 NULL},
+
+		{ngx_string("auth_jwt_extract_response_claims"),
+		 NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_1MORE,
+		 merge_extract_response_claims,
+		 NGX_HTTP_LOC_CONF_OFFSET,
+		 offsetof(ngx_http_auth_jwt_loc_conf_t, auth_jwt_extract_response_claims),
 		 NULL},
 
 		{ngx_string("auth_jwt_keyfile_path"),
@@ -183,6 +193,7 @@ static void *ngx_http_auth_jwt_create_conf(ngx_conf_t *cf)
 		conf->auth_jwt_redirect = NGX_CONF_UNSET;
 		conf->auth_jwt_validate_sub = NGX_CONF_UNSET;
 		conf->auth_jwt_extract_request_claims = NULL;
+		conf->auth_jwt_extract_response_claims = NULL;
 		conf->auth_jwt_use_keyfile = NGX_CONF_UNSET;
 
 		return conf;
@@ -201,6 +212,7 @@ static char *ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *ch
 	ngx_conf_merge_str_value(conf->auth_jwt_keyfile_path, prev->auth_jwt_keyfile_path, "");
 	ngx_conf_merge_off_value(conf->auth_jwt_validate_sub, prev->auth_jwt_validate_sub, 0);
 	ngx_conf_merge_ptr_value(conf->auth_jwt_extract_request_claims, prev->auth_jwt_extract_request_claims, NULL);
+	ngx_conf_merge_ptr_value(conf->auth_jwt_extract_request_claims, prev->auth_jwt_extract_response_claims, NULL);
 
 	if (conf->auth_jwt_enabled == NGX_CONF_UNSET)
 	{
@@ -238,17 +250,9 @@ static char *ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *ch
 	return NGX_CONF_OK;
 }
 
-static char *merge_extract_request_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *c)
+static char *merge_extract_claims(ngx_conf_t *cf, ngx_array_t *claims)
 {
-	ngx_http_auth_jwt_loc_conf_t *conf = c;
-	ngx_array_t *claims = conf->auth_jwt_extract_request_claims;
 	ngx_str_t *values = cf->args->elts;
-
-	if (claims == NULL)
-	{
-		claims = ngx_array_create(cf->pool, 1, sizeof(ngx_str_t));
-		conf->auth_jwt_extract_request_claims = claims;
-	}
 
 	// start at 1 because the first element is the directive (auth_jwt_extract_X_claims)
 	for (ngx_uint_t i = 1; i < cf->args->nelts; i++)
@@ -259,6 +263,34 @@ static char *merge_extract_request_claims(ngx_conf_t *cf, ngx_command_t *cmd, vo
 	}
 
 	return NGX_CONF_OK;
+}
+
+static char *merge_extract_request_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *c)
+{
+	ngx_http_auth_jwt_loc_conf_t *conf = c;
+	ngx_array_t *claims = conf->auth_jwt_extract_request_claims;
+
+	if (claims == NULL)
+	{
+		claims = ngx_array_create(cf->pool, 1, sizeof(ngx_str_t));
+		conf->auth_jwt_extract_request_claims = claims;
+	}
+
+	return merge_extract_claims(cf, claims);
+}
+
+static char *merge_extract_response_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *c)
+{
+	ngx_http_auth_jwt_loc_conf_t *conf = c;
+	ngx_array_t *claims = conf->auth_jwt_extract_response_claims;
+
+	if (claims == NULL)
+	{
+		claims = ngx_array_create(cf->pool, 1, sizeof(ngx_str_t));
+		conf->auth_jwt_extract_response_claims = claims;
+	}
+
+	return merge_extract_claims(cf, claims);
 }
 
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
@@ -350,6 +382,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 				else
 				{
 					extract_request_claims(r, jwtcf, jwt);
+					extract_response_claims(r, jwtcf, jwt);
 					jwt_free(jwt);
 
 					return NGX_OK;
@@ -399,15 +432,15 @@ static int validate_sub(ngx_http_auth_jwt_loc_conf_t *jwtcf, jwt_t *jwt)
 	return 0;
 }
 
-static void extract_request_claims(ngx_http_request_t *r, ngx_http_auth_jwt_loc_conf_t *jwtcf, jwt_t *jwt)
+static void extract_claims(ngx_http_request_t *r, jwt_t *jwt, ngx_array_t *claims, ngx_int_t (*set_header)(ngx_http_request_t *r, ngx_str_t *key, ngx_str_t *value))
 {
-	if (jwtcf->auth_jwt_extract_request_claims != NULL && jwtcf->auth_jwt_extract_request_claims->nelts > 0)
+	if (claims != NULL && claims->nelts > 0)
 	{
-		const ngx_str_t *claims = jwtcf->auth_jwt_extract_request_claims->elts;
+		const ngx_str_t *claimsPtr = claims->elts;
 
-		for (uint i = 0; i < jwtcf->auth_jwt_extract_request_claims->nelts; i++)
+		for (uint i = 0; i < claims->nelts; i++)
 		{
-			const ngx_str_t claim = claims[i];
+			const ngx_str_t claim = claimsPtr[i];
 			const char *value = jwt_get_grant(jwt, (char *)claim.data);
 
 			if (value != NULL && strlen(value) > 0)
@@ -420,10 +453,20 @@ static void extract_request_claims(ngx_http_request_t *r, ngx_http_auth_jwt_loc_
 				claimHeader.len = claimHeaderLen;
 				ngx_snprintf(claimHeader.data, claimHeaderLen, "%s%V", JWT_HEADER_PREFIX, &claim);
 
-				set_request_header(r, &claimHeader, &claimValue);
+				set_header(r, &claimHeader, &claimValue);
 			}
 		}
 	}
+}
+
+static void extract_request_claims(ngx_http_request_t *r, ngx_http_auth_jwt_loc_conf_t *jwtcf, jwt_t *jwt)
+{
+	extract_claims(r, jwt, jwtcf->auth_jwt_extract_request_claims, set_request_header);
+}
+
+static void extract_response_claims(ngx_http_request_t *r, ngx_http_auth_jwt_loc_conf_t *jwtcf, jwt_t *jwt)
+{
+	extract_claims(r, jwt, jwtcf->auth_jwt_extract_response_claims, set_response_header);
 }
 
 static ngx_int_t free_jwt_and_redirect(ngx_http_request_t *r, ngx_http_auth_jwt_loc_conf_t *jwtcf, jwt_t *jwt)

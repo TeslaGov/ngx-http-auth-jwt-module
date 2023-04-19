@@ -196,6 +196,21 @@ main() {
            -r '^Test: hello world$' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
+  run_test -n 'extracts single claim to response header' \
+           -p '/secure/extract-claim/response/sub' \
+           -r '^Test: sub=some-long-uuid$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts multiple claims (single directive) to response header' \
+           -p '/secure/extract-claim/response/name-1' \
+           -r '^Test: hello world$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts multiple claims (multiple directives) to response header' \
+           -p '/secure/extract-claim/response/name-2' \
+           -r '^Test: hello world$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
   if [[ "${NUM_FAILED}" = '0' ]]; then
     printf "\nRan ${NUM_TESTS} tests successfully (skipped ${NUM_SKIPPED}).\n"
     return 0
