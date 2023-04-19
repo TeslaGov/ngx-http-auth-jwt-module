@@ -75,7 +75,7 @@ This module requires several new `nginx.conf` directives, which can be specified
 
 | Directive                  | Description                                                                                                        |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `auth_jwt_key`             | The key to use to decode/verify the JWT -- see below.                                                              |
+| `auth_jwt_key`             | The key to use to decode/verify the JWT, *in binhex format* -- see below.                                          |
 | `auth_jwt_redirect`        | Set to "on" to redirect to `auth_jwt_loginurl` if authentication fails.                                            |
 | `auth_jwt_loginurl`        | The URL to redirect to if `auth_jwt_redirect` is enabled and authentication fails.                                 |
 | `auth_jwt_enabled`         | Set to "on" to enable JWT checking.                                                                                |
