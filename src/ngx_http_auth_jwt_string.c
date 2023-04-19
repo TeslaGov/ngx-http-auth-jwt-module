@@ -34,18 +34,3 @@ ngx_str_t char_ptr_to_ngx_str_t(ngx_pool_t *pool, const char* char_ptr)
 
 	return str_t;
 }
-
-/** extracts an element from an ngx_array_t variable */
-char *get_ngx_array_element(ngx_pool_t *pool, ngx_array_t *arr, uint index) {
-	if (arr == NULL || index >= arr->nelts) {
-		return NULL;
-	}
-	else {
-		char *elementPtr = ((char *) arr->elts) + (arr->size * index);
-		char *data = ngx_palloc(pool, arr->size);
-		
-		ngx_memcpy(data, elementPtr, arr->size);
-
-		return data;
-	}
-}
