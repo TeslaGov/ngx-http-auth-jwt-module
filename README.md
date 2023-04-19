@@ -90,14 +90,14 @@ For example, you could configure an NGINX location which redirects to the curren
 location /profile/me {
     auth_jwt_extract_request_claims sub;
 
-    return 301 /profile/$http_sub;
+    return 301 /profile/$http_jwt_sub;
 }
 ```
 
 ### Using Response Claims
 
 Response claims are used in the same way, with the only differences being:
- - the variables are access via the `$sent_http_*` pattern, e.g. `$sent_http_sub`, and
+ - the variables are accessed via the `$sent_http_jwt_*` pattern, e.g. `$sent_http_jwt_sub`, and
  - the headers are sent to the client.
 
 ### Extracting Multiple Claims
