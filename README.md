@@ -12,11 +12,12 @@ This module requires several new `nginx.conf` directives, which can be specified
 
 | Directive                            | Description                                                                                                                                          |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth_jwt_key`                       | The key to use to decode/verify the JWT, *in binhex format* -- see below.                                                                                                |
+| `auth_jwt_key`                       | The key to use to decode/verify the JWT, *in binhex format* -- see below.                                                                            |
 | `auth_jwt_redirect`                  | Set to "on" to redirect to `auth_jwt_loginurl` if authentication fails.                                                                              |
 | `auth_jwt_loginurl`                  | The URL to redirect to if `auth_jwt_redirect` is enabled and authentication fails.                                                                   |
 | `auth_jwt_enabled`                   | Set to "on" to enable JWT checking.                                                                                                                  |
 | `auth_jwt_algorithm`                 | The algorithm to use. One of: HS256, HS384, HS512, RS256, RS384, RS512                                                                               |
+| `auth_jwt_validation_type`           | Indicates where the JWT is located in the request -- see below.                                                                                      |
 | `auth_jwt_validate_sub`              | Set to "on" to validate the `sub` claim (e.g. user id) in the JWT.                                                                                   |
 | `auth_jwt_extract_request_claims`    | Set to a space-delimited list of claims to extract from the JWT and set as request headers. These will be accessible via e.g: `$http_jwt_sub`        |
 | `auth_jwt_extract_response_claims`   | Set to a space-delimited list of claims to extract from the JWT and set as response headers. These will be accessible via e.g: `$sent_http_jwt_sub`  |
