@@ -434,7 +434,7 @@ static void extract_claims(ngx_http_request_t *r, jwt_t *jwt, ngx_array_t *claim
   {
     const ngx_str_t *claimsPtr = claims->elts;
 
-    for (uint i = 0; i < claims->nelts; i++)
+    for (uint i = 0; i < claims->nelts; ++i)
     {
       const ngx_str_t claim = claimsPtr[i];
       const char *value = jwt_get_grant(jwt, (char *)claim.data);
