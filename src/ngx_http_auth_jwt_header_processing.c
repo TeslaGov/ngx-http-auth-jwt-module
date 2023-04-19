@@ -27,7 +27,7 @@ ngx_table_elt_t *search_headers_in(ngx_http_request_t *r, u_char *name, size_t l
   h = part->elts;
 
   // Headers list array may consist of more than one part, so loop through all of it
-  for (i = 0; /* void */; i++)
+  for (i = 0; /* void */; ++i)
   {
     if (i >= part->nelts)
     {
