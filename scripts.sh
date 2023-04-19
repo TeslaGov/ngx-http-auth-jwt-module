@@ -96,7 +96,7 @@ test() {
 		docker start -a ${CONTAINER_NAME_PREFIX}-runner
 	fi
 
-	#docker compose -f ./test/docker-compose-test.yml down
+	docker compose -f ./test/docker-compose-test.yml down
 }
 
 test_now() {

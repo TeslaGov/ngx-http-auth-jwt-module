@@ -7,6 +7,3 @@ RUN echo "Config Hash: ${CONFIG_HASH}"
 COPY /docker-entrypoint.d/* /docker-entrypoint.d/
 COPY /etc/nginx/conf.d/test.conf /etc/nginx/conf.d/test.conf
 COPY /etc/nginx/rsa_key_2048-pub.pem /etc/nginx/rsa-key.conf
-WORKDIR /var/log/nginx
-RUN unlink access.log &&\
-    unlink error.log
