@@ -52,7 +52,7 @@ run_test () {
     printf "\n${testNum}"
 
     if [ "${exitCode}" -ne "0" ]; then
-      printf "${RED}${name}\n\tcURL Exit Code: ${exitCode}";
+      printf "${RED}${name} -- unexpected exit code from cURL\n\tcURL Exit Code: ${exitCode}";
       NUM_FAILED=$((${NUM_FAILED} + 1));
     else
       OKAY=1
@@ -129,6 +129,11 @@ main() {
   run_test -n 'when auth enabled with default algorithm and valid JWT cookie with no sub, returns 200' \
            -p '/secure/cookie/default' \
            -c '200' \
+           -x ' --cookie "jwt=${JWT_HS256_MISSING_SUB}"'
+
+  run_test -n 'when auth enabled with default algorithm and valid JWT cookie with no sub when sub validated, returns 302' \
+           -p '/secure/cookie/default/validate-sub' \
+           -c '302' \
            -x ' --cookie "jwt=${JWT_HS256_MISSING_SUB}"'
 
   run_test -n 'when auth enabled with default algorithm and valid JWT cookie with no email, returns 200' \
