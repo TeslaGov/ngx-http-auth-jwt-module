@@ -19,6 +19,7 @@
 #include "ngx_http_auth_jwt_string.h"
 
 #include <stdio.h>
+#include <stdbool.h>
 
 typedef struct
 {
@@ -639,15 +640,25 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t validation_type)
   }
   else if (validation_type.len > sizeof("COOKIE=") && ngx_strncmp(validation_type.data, "COOKIE=", sizeof("COOKIE=") - 1) == 0)
   {
-    ngx_int_t n;
+    bool has_cookie = false;
     ngx_str_t jwtCookieVal;
 
     validation_type.data += sizeof("COOKIE=") - 1;
     validation_type.len -= sizeof("COOKIE=") - 1;
 
-    n = ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &validation_type, &jwtCookieVal);
+#ifndef NGX_LINKED_LIST_COOKIES
+    if (ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &validation_type, &jwtCookieVal) != NGX_DECLINED)
+    {
+      has_cookie = true;
+    }
+#else
+    if (ngx_http_parse_multi_header_lines(r, r->headers_in.cookie, &validation_type, &jwtCookieVal) != NULL)
+    {
+      has_cookie = true;
+    }
+#endif
 
-    if (n != NGX_DECLINED)
+    if (has_cookie == true)
     {
       jwtPtr = ngx_str_t_to_char_ptr(r->pool, jwtCookieVal);
     }

@@ -8,6 +8,8 @@ RUN <<`
 apt-get update
 apt-get install -y curl build-essential
 `
+
+
 FROM ngx_http_auth_jwt_builder_base as ngx_http_auth_jwt_builder_module
 LABEL stage=ngx_http_auth_jwt_builder
 ENV LD_LIBRARY_PATH=/usr/local/lib
@@ -29,7 +31,17 @@ tar -xzf nginx-${NGINX_VERSION}.tar.gz --strip-components 1 -C nginx
 `
 WORKDIR /root/build/nginx
 RUN <<`
-./configure --with-debug --with-compat --add-dynamic-module=../ngx-http-auth-jwt-module
+BUILD_FLAGS=''
+MAJ=$(echo ${NGINX_VERSION} | cut -f1 -d.)
+MIN=$(echo ${NGINX_VERSION} | cut -f2 -d.)
+REV=$(echo ${NGINX_VERSION} | cut -f3 -d.)
+
+# NGINX 1.23.0+ changes `cookies` to `cookie` 
+if [ "${MAJ}" -gt 1 ] || [ "${MAJ}" -eq 1 -a "${MIN}" -ge 23 ]; then
+	BUILD_FLAGS="${BUILD_FLAGS} --with-cc-opt='-DNGX_LINKED_LIST_COOKIES=1'"
+fi
+
+./configure --with-compat --add-dynamic-module=../ngx-http-auth-jwt-module ${BUILD_FLAGS}
 make modules
 `
 
