@@ -299,7 +299,6 @@ static ngx_int_t handle_request(ngx_http_request_t *r)
 
 	if (!jwtcf->enabled)
 	{
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "handle_request -- disabled");
 		return NGX_DECLINED;
 	}
 	else
@@ -363,19 +362,16 @@ static ngx_int_t handle_request(ngx_http_request_t *r)
 
 				if (validate_alg(jwtcf, jwt) != 0)
 				{
-					ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "handle_request -- validate_alg failed");
 					ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "invalid algorithm specified");
 					return free_jwt_and_redirect(r, jwtcf, jwt);
 				}
 				else if (validate_exp(jwtcf, jwt) != 0)
 				{
-					ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "handle_request -- validate_exp failed");
 					ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the JWT has expired");
 					return free_jwt_and_redirect(r, jwtcf, jwt);
 				}
 				else if (validate_sub(jwtcf, jwt) != 0)
 				{
-					ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "handle_request -- validate_sub failed");
 					ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the JWT does not contain a subject");
 					return free_jwt_and_redirect(r, jwtcf, jwt);
 				}
