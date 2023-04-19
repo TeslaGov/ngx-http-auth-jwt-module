@@ -1,13 +1,13 @@
 ARG NGINX_VERSION
 
 
-FROM debian:bullseye-slim as BASE_IMAGE
+FROM debian:bullseye-slim as base_image
 LABEL stage=builder
 RUN  apt-get update \
 	&& apt-get install -y curl build-essential
 
 
-FROM BASE_IMAGE as BUILD_IMAGE
+FROM base_image as build_image
 LABEL stage=builder
 ENV LD_LIBRARY_PATH=/usr/local/lib
 ARG NGINX_VERSION
@@ -38,4 +38,4 @@ RUN  apt-get update \
 
 LABEL stage=
 LABEL maintainer="TeslaGov" email="developers@teslagov.com"
-COPY --from=BUILD_IMAGE /root/build/nginx/objs/ngx_http_auth_jwt_module.so /usr/lib64/nginx/modules/
+COPY --from=build_image /root/build/nginx/objs/ngx_http_auth_jwt_module.so /usr/lib64/nginx/modules/
