@@ -255,7 +255,7 @@ static char *merge_extract_claims(ngx_conf_t *cf, ngx_array_t *claims)
   ngx_str_t *values = cf->args->elts;
 
   // start at 1 because the first element is the directive (auth_jwt_extract_X_claims)
-  for (ngx_uint_t i = 1; i < cf->args->nelts; i++)
+  for (ngx_uint_t i = 1; i < cf->args->nelts; ++i)
   {
     ngx_str_t *element = ngx_array_push(claims);
 
