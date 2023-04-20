@@ -9,6 +9,7 @@ services:
       dockerfile: Dockerfile-test-nginx
       args:
         BASE_IMAGE: ${FULL_IMAGE_NAME}:${NGINX_VERSION:-latest}
+    command: [nginx-debug, '-g', 'daemon off;']
     logging:
       driver: ${LOG_DRIVER:-journald}
 

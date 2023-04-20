@@ -1,24 +1,91 @@
 #!/bin/bash
 
-RED='\033[01;31m'
-GREEN='\033[01;32m'
-NONE='\033[00m'
+# set a test # here to execute only that test and output additional info
+DEBUG=
+
+RED='\e[31m'
+GREEN='\e[32m'
+GRAY='\e[90m'
+NC='\e[00m'
+
+NUM_TESTS=0;
+NUM_SKIPPED=0;
+NUM_FAILED=0;
 
 run_test () {
-  local name=$1
-  local path=$2
-  local expect=$3
-  local extra=$4
+  NUM_TESTS=$((${NUM_TESTS} + 1));
 
-  cmd="curl -X GET -o /dev/null --silent --head --write-out '%{http_code}' http://nginx:8000${path} -H 'cache-control: no-cache' $extra"
-  result=$(eval ${cmd})
+  if [ "${DEBUG}" == '' ] || [ ${DEBUG} == ${NUM_TESTS} ]; then
+    local OPTIND;
+    local name=''
+    local path=''
+    local expectedCode=''
+    local expectedResponseRegex=''
+    local extraCurlOpts=''
+    local curlCommand=''
+    local exitCode=''
+    local response=''
+    local testNum="${GRAY}${NUM_TESTS}${NC}\t"
 
-  if [ "${result}" -eq "${expect}" ]; then
-    echo -e "${GREEN}${name}: passed (Received: ${result}; Path: ${path})${NONE}";
-    return 0
+    while getopts "n:p:r:c:x:" option; do
+      case $option in
+      n)
+        name=$OPTARG;;
+      p)
+        path=$OPTARG;;
+      c)
+        expectedCode=$OPTARG;;
+      r)
+        expectedResponseRegex=$OPTARG;;
+      x)
+        extraCurlOpts=$OPTARG;;
+      \?) # Invalid option
+        printf "Error: Invalid option\n";
+        exit;;
+      esac
+    done
+
+    curlCommand="curl -s -v http://nginx:8000${path} -H 'Cache-Control: no-cache' ${extraCurlOpts} 2>&1"
+    response=$(eval "${curlCommand}")
+    exitCode=$?
+    
+    printf "\n${testNum}"
+
+    if [ "${exitCode}" -ne "0" ]; then
+      printf "${RED}${name} -- unexpected exit code from cURL\n\tcURL Exit Code: ${exitCode}";
+      NUM_FAILED=$((${NUM_FAILED} + 1));
+    else
+      OKAY=1
+
+      if [ "${expectedCode}" != "" ]; then
+        local responseCode=$(echo "${response}" | grep -Eo 'HTTP/1.1 ([0-9]{3})' | awk '{print $2}')
+
+        if [ "${expectedCode}" != "${responseCode}" ]; then
+          printf "${RED}${name} -- unexpected status code\n\tExpected: ${expectedCode}\n\tActual: ${responseCode}\n\tPath: ${path}"
+          NUM_FAILED=$((${NUM_FAILED} + 1))
+          OKAY=0
+        fi
+      fi
+
+      if [ "${OKAY}" == "1" ] && [ "${expectedResponseRegex}" != "" ] && echo "${response}" | grep -Eq "${expectedResponseRegex}"; then
+        printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex}"
+        NUM_FAILED=$((${NUM_FAILED} + 1))
+        OKAY=0
+      fi
+      
+      if [ "${OKAY}" == "1" ]; then
+        printf "${GREEN}${name}";
+      fi
+    fi
+
+    if [ "${DEBUG}" == "${NUM_TESTS}" ]; then
+      printf '\n\tcURL Command: %s' "${curlCommand:---}"
+      printf '\n\tResponse: %s' "${response:---}"
+    fi
+
+    printf "${NC}\n"
   else
-    echo -e "${RED}${name}: failed (Expected: ${expect}; Received: ${result}; Path: ${path})${NONE}";
-    return 1
+    NUM_SKIPPED=$((${NUM_SKIPPED} + 1))
   fi
 }
 
@@ -32,108 +99,129 @@ main() {
   local JWT_RS256_INVALID=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzb21lLWxvbmctdXVpZCIsImZpcnN0TmFtZSI6ImhlbGxvIiwibGFzdE5hbWUiOiJ3b3JsZCIsImVtYWlsQWRkcmVzcyI6ImhlbGxvd29ybGRAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJ0aGlzIiwidGhhdCIsInRoZW90aGVyIl0sImlzcyI6Imlzc3VlciIsInBlcnNvbklkIjoiNzViYjNjYzctYjkzMy00NGYwLTkzYzYtMTQ3YjA4MmZhZGI1IiwiZXhwIjoxOTA4ODM1MjAwLCJpYXQiOjE0ODg4MTk2MDAsInVzZXJuYW1lIjoiaGVsbG8ud29ybGQifQ._aQmIBL4CVBxU1fNMOHp0kkagFaaX2TvAEenizytwd0
   local JWT_RS384_VALID=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzM4NCJ9.eyJzdWIiOiJzb21lLWxvbmctdXVpZCIsImZpcnN0TmFtZSI6ImhlbGxvIiwibGFzdE5hbWUiOiJ3b3JsZCIsImVtYWlsQWRkcmVzcyI6ImhlbGxvd29ybGRAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJ0aGlzIiwidGhhdCIsInRoZW90aGVyIl0sImlzcyI6Imlzc3VlciIsInBlcnNvbklkIjoiNzViYjNjYzctYjkzMy00NGYwLTkzYzYtMTQ3YjA4MmZhZGI1IiwiZXhwIjoxOTA4ODM1MjAwLCJpYXQiOjE0ODg4MTk2MDAsInVzZXJuYW1lIjoiaGVsbG8ud29ybGQifQ.H35bTcZRhepWIoa8pKCbUMRuAOkVX9K5hJjc6tPmQwWmTw8lrktsvmMzJg_rgqnJLnAkciSIQw5EDj7fngS5zX2ThyRxrkPuE2Uiyw2Ect-mo9Kg1lrWgnyZCuCgq-Up9HQRAv0160mePlm8Gs4TOY6CPr38zwTcDZsy_Keq93igDQV8WuuWAGICaGd5ZyUOPjjzGShRjTU8Szz7fnpZpTtYRCYVo0pc5yfRWYm0fdn-4AseyGvd8JJ2xfnAEe4kZOkz7X1MLKtL0slKg3m2PH1lD7HwxIawXRTPWxArhJ9dcTNiDUrqtde2juGwOuMD_zTsb2Jj0_rmRb0Q6aljNw
   local JWT_RS512_VALID=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzUxMiJ9.eyJzdWIiOiJzb21lLWxvbmctdXVpZCIsImZpcnN0TmFtZSI6ImhlbGxvIiwibGFzdE5hbWUiOiJ3b3JsZCIsImVtYWlsQWRkcmVzcyI6ImhlbGxvd29ybGRAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJ0aGlzIiwidGhhdCIsInRoZW90aGVyIl0sImlzcyI6Imlzc3VlciIsInBlcnNvbklkIjoiNzViYjNjYzctYjkzMy00NGYwLTkzYzYtMTQ3YjA4MmZhZGI1IiwiZXhwIjoxOTA4ODM1MjAwLCJpYXQiOjE0ODg4MTk2MDAsInVzZXJuYW1lIjoiaGVsbG8ud29ybGQifQ.iUupyKypfXJ5aZWfItSW-mOmx9a4C4X7Yr5p5Fk8W75ZhkOq0EeNfstTxx870brhkdPovBhO2LYI44_HoH9XicQNL6JnFprE0r61eJFngbuzlhRQiWpq0xYrazJWc9zB7_GgL2ZCwtw-Ts3G23Q0632wVm6-d7MKvG7RS8aEjN-MuVGdtLglH3forpItmFxw-if40EQsBL7hncN_XNcQTO4KPHkqmlpac_oKXRrLFDIIt2tB6OOpvY4QcpERoxexp4pi2f-JoINnWX_dU5JnIs3ypVJLQPfoJvxg8fsg3zYrOvMYnfsqOCYoHtZGK0O7jyfFmcGo5v2hLT-CpoF3Zw
-  local num_tests=0
-  local num_failed=0
 
-  run_test 'when auth disabled, should return 200' \
-           '/' \
-           '200'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth disabled, should return 200' \
+           -p '/' \
+           -c '200'
+  
+  run_test -n 'when auth enabled with default algorithm and no JWT in Authorization header, returns 302' \
+           -p '/secure/auth-header/default' \
+           -c '302'
 
-  run_test 'when auth enabled with default algorithm and no JWT in Authorization header, returns 302' \
-           '/secure/auth-header/default' \
-           '302'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with default algorithm with no redirect and Authorization header missing Bearer, should return 401' \
+           -p '/secure/auth-header/default/no-redirect' \
+           -c '401' \
+           -x '--header "Authorization: X"'
 
-  run_test 'when auth enabled with default algorithm with no redirect and Authroization header missing Bearer, should return 401' \
-           '/secure/auth-header/default/no-redirect' \
-           '401' \
-           '--header "Authorization: X"'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with default algorithm and no JWT cookie, returns 302' \
+           -p '/secure/cookie/default' \
+           -c '302'
 
-  run_test 'when auth enabled with default algorithm and no JWT cookie, returns 302' \
-           '/secure/cookie/default' \
-           '302'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with default algorithm with no redirect and no JWT cookie, should return 401' \
+           -p '/secure/cookie/default/no-redirect' \
+           -c '401'
 
-  run_test 'when auth enabled with default algorithm with no redirect and no JWT cookie, should return 401' \
-           '/secure/cookie/default/no-redirect' \
-           '401'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with default algorithm and valid JWT cookie, returns 200' \
+           -p '/secure/cookie/default' \
+           -c '200' \
+           -x "--cookie jwt=${JWT_HS256_VALID}"
 
-  run_test 'when auth enabled with default algorithm and valid JWT cookie, returns 200' \
-           '/secure/cookie/default' \
-           '200' \
-           '--cookie "jwt=${JWT_HS256_VALID}"'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with default algorithm and valid JWT cookie with no sub, returns 200' \
+           -p '/secure/cookie/default' \
+           -c '200' \
+           -x ' --cookie "jwt=${JWT_HS256_MISSING_SUB}"'
 
-  run_test 'when auth enabled with default algorithm and valid JWT cookie with no sub, returns 200' \
-           '/secure/cookie/default' \
-           '200' \
-           ' --cookie "jwt=${JWT_HS256_MISSING_SUB}"'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with default algorithm and valid JWT cookie with no sub when sub validated, returns 302' \
+           -p '/secure/cookie/default/validate-sub' \
+           -c '302' \
+           -x ' --cookie "jwt=${JWT_HS256_MISSING_SUB}"'
 
-  run_test 'when auth enabled with default algorithm and valid JWT cookie with no email, returns 200' \
-           '/secure/cookie/default' \
-           '200' \
-           ' --cookie "jwt=${JWT_HS256_MISSING_EMAIL}"'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with default algorithm and valid JWT cookie with no email, returns 200' \
+           -p '/secure/cookie/default' \
+           -c '200' \
+           -x ' --cookie "jwt=${JWT_HS256_MISSING_EMAIL}"'
 
-  run_test 'when auth enabled with HS256 algorithm and valid JWT cookie, returns 200' \
-           '/secure/cookie/hs256/' \
-           '200' \
-           '--cookie "jwt=${JWT_HS256_VALID}"'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with HS256 algorithm and valid JWT cookie, returns 200' \
+           -p '/secure/cookie/hs256/' \
+           -c '200' \
+           -x '--cookie "jwt=${JWT_HS256_VALID}"'
 
-  run_test 'when auth enabled with HS384 algorithm and valid JWT cookie, returns 200' \
-           '/secure/cookie/hs384' \
-           '200' \
-           '--cookie "jwt=${JWT_HS384_VALID}"'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with HS384 algorithm and valid JWT cookie, returns 200' \
+           -p '/secure/cookie/hs384' \
+           -c '200' \
+           -x '--cookie "jwt=${JWT_HS384_VALID}"'
 
-  run_test 'when auth enabled with HS512 algorithm and valid JWT cookie, returns 200' \
-           '/secure/cookie/hs512' \
-           '200' \
-           '--cookie "jwt=${JWT_HS512_VALID}"'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with HS512 algorithm and valid JWT cookie, returns 200' \
+           -p '/secure/cookie/hs512' \
+           -c '200' \
+           -x '--cookie "jwt=${JWT_HS512_VALID}"'
 
-  run_test 'when auth enabled with RS256 algorithm and valid JWT cookie, returns 200' \
-           '/secure/cookie/rs256' \
-           '200' \
-           ' --cookie "jwt=${JWT_RS256_VALID}"'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with RS256 algorithm and valid JWT cookie, returns 200' \
+           -p '/secure/cookie/rs256' \
+           -c '200' \
+           -x ' --cookie "jwt=${JWT_RS256_VALID}"'
 
-  run_test 'when auth enabled with RS256 algorithm via file and valid JWT in Authorization header, returns 200' \
-           '/secure/auth-header/rs256/file' \
-           '200' \
-           '--header "Authorization: Bearer ${JWT_RS256_VALID}"'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with RS256 algorithm via file and valid JWT in Authorization header, returns 200' \
+           -p '/secure/auth-header/rs256/file' \
+           -c '200' \
+           -x '--header "Authorization: Bearer ${JWT_RS256_VALID}"'
 
-  run_test 'when auth enabled with RS256 algorithm via file and invalid JWT in Authorization header, returns 401' \
-           '/secure/auth-header/rs256/file' \
-           '302' \
-           '--header "Authorization: Bearer ${JWT_RS256_INVALID}"'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with RS256 algorithm via file and invalid JWT in Authorization header, returns 401' \
+           -p '/secure/auth-header/rs256/file' \
+           -c '302' \
+           -x '--header "Authorization: Bearer ${JWT_RS256_INVALID}"'
 
-  run_test 'when auth enabled with RS384 algorithm via file and valid JWT in Authorization header, returns 200' \
-           '/secure/auth-header/rs384/file' \
-           '200' \
-           '--header "Authorization: Bearer ${JWT_RS256_VALID}"'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with RS384 algorithm via file and valid JWT in Authorization header, returns 200' \
+           -p '/secure/auth-header/rs384/file' \
+           -c '200' \
+           -x '--header "Authorization: Bearer ${JWT_RS256_VALID}"'
 
-  run_test 'when auth enabled with RS512 algorithm via file and valid JWT in Authorization header, returns 200' \
-           '/secure/auth-header/rs512/file' \
-           '200' \
-           '--header "Authorization: Bearer ${JWT_RS256_VALID}"'
-  num_failed=$((${num_failed} + $?)); num_tests=$((${num_tests} + 1));
+  run_test -n 'when auth enabled with RS512 algorithm via file and valid JWT in Authorization header, returns 200' \
+           -p '/secure/auth-header/rs512/file' \
+           -c '200' \
+           -x '--header "Authorization: Bearer ${JWT_RS256_VALID}"'
 
-  if [[ "${num_failed}" = '0' ]]; then
-    printf "\nRan ${num_tests} tests successfully.\n"
+  run_test -n 'extracts single claim to request header' \
+           -p '/secure/extract-claim/request/sub' \
+           -r '^Test: sub=some-long-uuid$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts multiple claims (single directive) to request header' \
+           -p '/secure/extract-claim/request/name-1' \
+           -r '^Test: hello world$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts multiple claims (multiple directives) to request header' \
+           -p '/secure/extract-claim/request/name-2' \
+           -r '^Test: hello world$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts single claim to response header' \
+           -p '/secure/extract-claim/response/sub' \
+           -r '^Test: sub=some-long-uuid$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts multiple claims (single directive) to response header' \
+           -p '/secure/extract-claim/response/name-1' \
+           -r '^Test: hello world$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts multiple claims (multiple directives) to response header' \
+           -p '/secure/extract-claim/response/name-2' \
+           -r '^Test: hello world$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  if [[ "${NUM_FAILED}" = '0' ]]; then
+    printf "\nRan ${NUM_TESTS} tests successfully (skipped ${NUM_SKIPPED}).\n"
     return 0
   else
-    printf "\nRan ${num_tests} tests: ${GREEN}$((${num_tests} - ${num_failed})) passed${NONE}; ${RED}${num_failed} failed${NONE}\n"
+    printf "\nRan ${NUM_TESTS} tests: ${GREEN}$((${NUM_TESTS} - ${NUM_FAILED})) passed${NC}; ${RED}${NUM_FAILED} failed${NC}; ${NUM_SKIPPED} skipped\n"
     return 1
   fi
 }
 
-main '$@'
+if [ "${DEBUG}" != '' ]; then
+ printf "\n${RED}Some tests will be skipped since DEBUG is set.${NC}\n"
+fi
+
+main

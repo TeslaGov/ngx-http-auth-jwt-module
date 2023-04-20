@@ -15,18 +15,22 @@ char* ngx_str_t_to_char_ptr(ngx_pool_t *pool, ngx_str_t str)
 {
 	char* char_ptr = ngx_palloc(pool, str.len + 1);
 	ngx_memcpy(char_ptr, str.data, str.len);
+
 	*(char_ptr + str.len) = '\0';
+
 	return char_ptr;
 }
 
 /** copies a character pointer string to an nginx string structure */
-ngx_str_t ngx_char_ptr_to_str_t(ngx_pool_t *pool, char* char_ptr)
+ngx_str_t char_ptr_to_ngx_str_t(ngx_pool_t *pool, const char* char_ptr)
 {
-	int len = strlen(char_ptr);
-
+	const int len = strlen(char_ptr);
 	ngx_str_t str_t;
-	str_t.data = ngx_palloc(pool, len);
-	ngx_memcpy(str_t.data, char_ptr, len);
+
 	str_t.len = len;
+	str_t.data = ngx_palloc(pool, len);
+
+	ngx_memcpy(str_t.data, char_ptr, len);
+
 	return str_t;
 }
