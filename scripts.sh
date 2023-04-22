@@ -28,42 +28,54 @@ build_module() {
 	printf "${BLUE}Building module...${NC}\n"
 	docker image build -t ${FULL_IMAGE_NAME}:latest -t ${FULL_IMAGE_NAME}:${NGINX_VERSION} ${dockerArgs} \
 		--build-arg NGINX_VERSION=${NGINX_VERSION} \
-		--build-arg SOURCE_HASH=${sourceHash} \.
+		--build-arg SOURCE_HASH=${sourceHash} .
 	
 	if [ "$?" -ne 0 ]; then
 		printf "${RED}✘ Build failed ${NC}\n"
 	else
 		printf "${GREEN}✔ Successfully built NGINX module ${NC}\n"
 	fi
-
-	docker rmi -f $(docker images --filter=label=stage=ngx_http_auth_jwt_builder --quiet) 2> /dev/null || true
 }
 
 rebuild_module() {
+	clean_module
 	build_module --no-cache
 }
 
+clean_module() {
+	docker rmi -f $(docker images --filter=label=stage=ngx_http_auth_jwt_builder --quiet) 2> /dev/null || true
+}
+
 start_nginx() {
-	printf "${BLUE}Starting NGINX...${NC}\n"
-	docker run --rm --name "${IMAGE_NAME}" -d -p 8000:80 ${FULL_IMAGE_NAME}
+	printf "${BLUE}Starting NGINX container (${IMAGE_NAME})...${NC}\n"
+	docker run --rm --name "${IMAGE_NAME}" -d -p 8000:80 ${FULL_IMAGE_NAME} >/dev/null
 }
 
 stop_nginx() {
-	docker stop "${IMAGE_NAME}"
+	docker stop "${IMAGE_NAME}" >/dev/null
 }
 
 cp_bin() {
-	if [ "$(docker container inspect -f '{{.State.Running}}' ${IMAGE_NAME})" != "true" ]; then
+	local destDir=bin
+	local stopContainer=0;
+
+	if [ "$(docker container inspect -f '{{.State.Running}}' ${IMAGE_NAME} | true)" != "true" ]; then
 		start_nginx
+		stopContainer=1
 	fi
 
-	printf "${BLUE}Copying binaries...${NC}\n"
-	rm -rf bin
-	mkdir bin
+	printf "${BLUE}Copying binaries to: ${destDir}${NC}\n"
+	rm -rf ${destDir}/*
+	mkdir -p ${destDir}
 	docker exec "${IMAGE_NAME}" sh -c "cd /; tar -chf - \
 		usr/lib64/nginx/modules/ngx_http_auth_jwt_module.so \
 		usr/lib/x86_64-linux-gnu/libjansson.so.* \
-		usr/lib/x86_64-linux-gnu/libjwt.*" | tar -xf - -C bin &>/dev/null
+		usr/lib/x86_64-linux-gnu/libjwt.*" | tar -xf - -C ${destDir} &>/dev/null
+	
+	if [ $stopContainer ]; then
+		printf "${BLUE}Stopping NGINX container (${IMAGE_NAME})...${NC}\n"
+		stop_nginx
+	fi
 }
 
 build_test_runner() {
