@@ -2,6 +2,10 @@
 
 This is an NGINX module to check for a valid JWT and proxy to an upstream server or redirect to a login page. It supports additional features such as extracting claims from the JWT and placing them on the request/response headers.
 
+## Breaking Changes with v2
+
+The `v2` branch, which has now been merged to `master` includes breaking changes. Please see the initial v2 release for details,
+
 ## Dependencies
 
 This module depends on the [JWT C Library](https://github.com/benmcollins/libjwt). Transitively, that library depends on a JSON Parser called [Jansson](https://github.com/akheron/jansson) as well as the OpenSSL library.
@@ -160,19 +164,19 @@ Note the `includePath` additions above -- please update them as appropriate. Nex
 3. Update the `includePath` entires shown above to match the location you chose.
 4. Enter the directory where you extracted NGINX and run: `./configure --with-compat`
 
-#### Cloning libjwt
+#### Cloning `libjwt`
 
 1. Clone this repository as follows (replace `<target_dir>`): `git clone git@github.com:benmcollins/libjwt.git <target_dir>
 2. Enter the directory and switch to the latest tag: `git checkout $(git tag | sort -Vr | head -n 1)`
 3. Update the `includePath` entires shown above to match the location you chose.
 
-#### Cloning libjansson
+#### Cloning `libjansson`
 
 1. Clone this repository as follows (replace `<target_dir>`): `git clone git@github.com:akheron/jansson.git <target_dir>
 2. Enter the directory and switch to the latest tag: `git checkout $(git tag | sort -Vr | head -n 1)`
 3. Update the `includePath` entires shown above to match the location you chose.
 
-#### Verifing Compliation
+#### Verifying Compliation
 
 Once you save your changes to `.vscode/c_cpp_properties.json`, you should see that warnings and errors in the Problems panel go away, at least temprorarily. Hopfeully they don't come back, but if they do, make sure your include paths are set correctly.
 
