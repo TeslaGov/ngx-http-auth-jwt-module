@@ -109,10 +109,15 @@ main() {
            -p '/secure/auth-header/default' \
            -c '302'
 
-  run_test -n 'when auth enabled with default algorithm with no redirect and Authorization header missing Bearer, should return 401' \
+  run_test -n 'when auth enabled with default algorithm with no redirect and Authorization header missing Bearer, should return 200' \
            -p '/secure/auth-header/default/no-redirect' \
-           -c '401' \
-           -x '--header "Authorization: X"'
+           -c '200' \
+           -x "--header \"Authorization: ${JWT_HS256_VALID}\""
+
+  run_test -n 'when auth enabled with default algorithm with no redirect and Authorization header with Bearer, should return 200' \
+           -p '/secure/auth-header/default/no-redirect' \
+           -c '200' \
+           -x "--header \"Authorization: Bearer ${JWT_HS256_VALID}\""
 
   run_test -n 'when auth enabled with default algorithm and no JWT cookie, returns 302' \
            -p '/secure/cookie/default' \
@@ -143,7 +148,7 @@ main() {
            -x ' --cookie "jwt=${JWT_HS256_MISSING_EMAIL}"'
 
   run_test -n 'when auth enabled with HS256 algorithm and valid JWT cookie, returns 200' \
-           -p '/secure/cookie/hs256/' \
+           -p '/secure/cookie/hs256' \
            -c '200' \
            -x '--cookie "jwt=${JWT_HS256_VALID}"'
 
@@ -181,6 +186,16 @@ main() {
            -p '/secure/auth-header/rs512/file' \
            -c '200' \
            -x '--header "Authorization: Bearer ${JWT_RS256_VALID}"'
+
+  run_test -n 'when auth enabled with HS256 algorithm and valid JWT in custom header without bearer, returns 200' \
+           -p '/secure/custom-header/hs256/' \
+           -c '200' \
+           -x '--header "Auth-Token: ${JWT_HS256_VALID}"'
+
+  run_test -n 'when auth enabled with HS256 algorithm and valid JWT in custom header with bearer, returns 200' \
+           -p '/secure/custom-header/hs256/' \
+           -c '200' \
+           -x '--header "Auth-Token: Bearer ${JWT_HS256_VALID}"'
 
   run_test -n 'extracts single claim to request header' \
            -p '/secure/extract-claim/request/sub' \
