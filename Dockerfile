@@ -36,7 +36,7 @@ MAJ=$(echo ${NGINX_VERSION} | cut -f1 -d.)
 MIN=$(echo ${NGINX_VERSION} | cut -f2 -d.)
 REV=$(echo ${NGINX_VERSION} | cut -f3 -d.)
 
-# NGINX 1.23.0+ changes `cookies` to `cookie` 
+# NGINX 1.23.0+ changes cookies to use a linked list, and renames `cookies` to `cookie`
 if [ "${MAJ}" -gt 1 ] || [ "${MAJ}" -eq 1 -a "${MIN}" -ge 23 ]; then
 	BUILD_FLAGS="${BUILD_FLAGS} --with-cc-opt='-DNGX_LINKED_LIST_COOKIES=1'"
 fi
