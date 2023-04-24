@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/bin/bash -u
 
 # set a test # here to execute only that test and output additional info
+PORT=${1:-8000}
 DEBUG=
 
 RED='\e[31m'
@@ -45,7 +46,7 @@ run_test () {
       esac
     done
 
-    curlCommand="curl -s -v http://nginx:8000${path} -H 'Cache-Control: no-cache' ${extraCurlOpts} 2>&1"
+    curlCommand="curl -s -v http://nginx:${PORT}${path} -H 'Cache-Control: no-cache' ${extraCurlOpts} 2>&1"
     response=$(eval "${curlCommand}")
     exitCode=$?
     
@@ -224,4 +225,5 @@ if [ "${DEBUG}" != '' ]; then
  printf "\n${RED}Some tests will be skipped since DEBUG is set.${NC}\n"
 fi
 
+printf "\n${GRAY}Starting tests using port ${PORT}...${NC}\n"
 main

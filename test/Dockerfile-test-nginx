@@ -1,9 +1,12 @@
 ARG BASE_IMAGE
 ARG CONFIG_HASH
+ARG PORT
 
 FROM ${BASE_IMAGE} as NGINX
 ARG CONFIG_HASH
+ARG PORT
 RUN echo "Config Hash: ${CONFIG_HASH}"
 COPY /docker-entrypoint.d/* /docker-entrypoint.d/
 COPY /etc/nginx/conf.d/test.conf /etc/nginx/conf.d/test.conf
 COPY /etc/nginx/rsa_key_2048-pub.pem /etc/nginx/rsa-key.conf
+RUN sed -i "s|%{PORT}|${PORT}|" /etc/nginx/conf.d/test.conf

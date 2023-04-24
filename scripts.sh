@@ -47,8 +47,10 @@ clean_module() {
 }
 
 start_nginx() {
-	printf "${BLUE}Starting NGINX container (${IMAGE_NAME})...${NC}\n"
-	docker run --rm --name "${IMAGE_NAME}" -d -p 8000:80 ${FULL_IMAGE_NAME} >/dev/null
+	local port=$(get_port)
+
+	printf "${BLUE}Starting NGINX container (${IMAGE_NAME}) on port ${port}...${NC}\n"
+	docker run --rm --name "${IMAGE_NAME}" -d -p ${PORT}:80 ${FULL_IMAGE_NAME} >/dev/null
 }
 
 stop_nginx() {
@@ -82,11 +84,13 @@ build_test_runner() {
 	local dockerArgs=${1:-}
 	local configHash=$(get_hash $(find test -type f -not -name 'test.sh' -not -name '*.yml' -not -name 'Dockerfile*'))
 	local sourceHash=$(get_hash test/test.sh)
-
-	printf "${BLUE}Building test runner...${NC}\n"
+	local port=$(get_port)
+	
+	printf "${BLUE}Building test runner using port ${port}...${NC}\n"
 	docker compose -f ./test/docker-compose-test.yml build ${dockerArgs} \
 		--build-arg CONFIG_HASH=${configHash}\
-		--build-arg SOURCE_HASH=${sourceHash}
+		--build-arg SOURCE_HASH=${sourceHash} \
+		--build-arg PORT=${port}
 }
 
 rebuild_test_runner() {
@@ -105,7 +109,7 @@ test() {
 		docker logs ${CONTAINER_NAME_PREFIX}
 		printf "${NC}\n"
 	else
-		docker start -a ${CONTAINER_NAME_PREFIX}-runner
+		test_now
 	fi
 
 	docker compose -f ./test/docker-compose-test.yml down
@@ -117,6 +121,15 @@ test_now() {
 
 get_hash() {
 	sha1sum $@ | sed -E 's|\s+|:|' | tr '\n' ' ' | sha1sum | head -c 40
+}
+
+get_port() {
+	for p in $(seq 8000 8100); do
+		if ! ss -ln | grep -q ":${p} "; then
+			echo ${p}
+			break
+		fi
+	done
 }
 
 if [ $# -eq 0 ]; then
