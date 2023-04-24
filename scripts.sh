@@ -50,7 +50,7 @@ start_nginx() {
 	local port=$(get_port)
 
 	printf "${BLUE}Starting NGINX container (${IMAGE_NAME}) on port ${port}...${NC}\n"
-	docker run --rm --name "${IMAGE_NAME}" -d -p ${PORT}:80 ${FULL_IMAGE_NAME} >/dev/null
+	docker run --rm --name "${IMAGE_NAME}" -d -p ${port}:80 ${FULL_IMAGE_NAME} >/dev/null
 }
 
 stop_nginx() {
