@@ -9,7 +9,7 @@ export ORG_NAME=${ORG_NAME:-teslagov}
 export IMAGE_NAME=${IMAGE_NAME:-jwt-nginx}
 export FULL_IMAGE_NAME=${ORG_NAME}/${IMAGE_NAME}
 export CONTAINER_NAME_PREFIX=${CONTAINER_NAME_PREFIX:-jwt-nginx-test}
-export NGINX_VERSION=${NGINX_VERSION:-1.22.0}
+export NGINX_VERSION=${NGINX_VERSION:-1.24.0}
 
 all() {
 	build_module
