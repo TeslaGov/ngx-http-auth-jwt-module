@@ -80,6 +80,31 @@ cp_bin() {
 	fi
 }
 
+make_release() {
+	printf "${BLUE}Making release for version ${NGINX_VERSION}...${NC}\n"
+
+	build_module
+	cp_bin
+
+	mkdir -p release
+	tar -czvf release/ngx_http_auth_jwt_module_${NGINX_VERSION}.tgz \
+		README.md \
+		-C bin/usr/lib64/nginx/modules ngx_http_auth_jwt_module.so > /dev/null
+}
+
+# Create releases for the current mainline and stable version, as well as the 2 most recent "legacy" versions.
+#   See: https://nginx.org/en/download.html
+make_releases() {
+	VERSIONS=(1.20.2 1.22.1 1.24.0 1.23.4)
+	
+	rm -rf release/*
+
+	for v in ${VERSIONS[@]}; do
+		NGINX_VERSION=${v} make_release
+	done
+}
+
+
 build_test_runner() {
 	local dockerArgs=${1:-}
 	local configHash=$(get_hash $(find test -type f -not -name 'test.sh' -not -name '*.yml' -not -name 'Dockerfile*'))
