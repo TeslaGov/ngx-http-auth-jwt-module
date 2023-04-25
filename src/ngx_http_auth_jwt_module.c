@@ -27,7 +27,7 @@ typedef struct
   ngx_str_t key;
   ngx_flag_t enabled;
   ngx_flag_t redirect;
-  ngx_str_t validation_type;
+  ngx_str_t jwt_location;
   ngx_str_t algorithm;
   ngx_flag_t validate_sub;
   ngx_array_t *extract_request_claims;
@@ -51,9 +51,9 @@ static void extract_response_claims(ngx_http_request_t *r, auth_jwt_conf_t *jwtc
 static ngx_int_t free_jwt_and_redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf, jwt_t *jwt);
 static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf);
 static ngx_int_t load_public_key(ngx_conf_t *cf, auth_jwt_conf_t *conf);
-static char *get_jwt(ngx_http_request_t *r, ngx_str_t validation_type);
+static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location);
 
-static char *JWT_HEADER_PREFIX = "JWT-";
+static const char *JWT_HEADER_PREFIX = "JWT-";
 
 static ngx_command_t auth_jwt_directives[] = {
     {ngx_string("auth_jwt_loginurl"),
@@ -84,11 +84,11 @@ static ngx_command_t auth_jwt_directives[] = {
      offsetof(auth_jwt_conf_t, redirect),
      NULL},
 
-    {ngx_string("auth_jwt_validation_type"),
+    {ngx_string("auth_jwt_location"),
      NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
      ngx_conf_set_str_slot,
      NGX_HTTP_LOC_CONF_OFFSET,
-     offsetof(auth_jwt_conf_t, validation_type),
+     offsetof(auth_jwt_conf_t, jwt_location),
      NULL},
 
     {ngx_string("auth_jwt_algorithm"),
@@ -208,7 +208,7 @@ static char *merge_conf(ngx_conf_t *cf, void *parent, void *child)
 
   ngx_conf_merge_str_value(conf->loginurl, prev->loginurl, "");
   ngx_conf_merge_str_value(conf->key, prev->key, "");
-  ngx_conf_merge_str_value(conf->validation_type, prev->validation_type, "");
+  ngx_conf_merge_str_value(conf->jwt_location, prev->jwt_location, "HEADER=Authorization");
   ngx_conf_merge_str_value(conf->algorithm, prev->algorithm, "HS256");
   ngx_conf_merge_str_value(conf->keyfile_path, prev->keyfile_path, "");
   ngx_conf_merge_off_value(conf->validate_sub, prev->validate_sub, 0);
@@ -311,7 +311,7 @@ static ngx_int_t handle_request(ngx_http_request_t *r)
     }
     else
     {
-      char *jwtPtr = get_jwt(r, jwtcf->validation_type);
+      char *jwtPtr = get_jwt(r, jwtcf->jwt_location);
 
       if (jwtPtr == NULL)
       {
@@ -608,51 +608,50 @@ static ngx_int_t load_public_key(ngx_conf_t *cf, auth_jwt_conf_t *conf)
   }
 }
 
-static char *get_jwt(ngx_http_request_t *r, ngx_str_t validation_type)
+static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
 {
+  static const char *HEADER_PREFIX = "HEADER=";
+  static const char *BEARER_PREFIX = "Bearer ";
+  static const char *COOKIE_PREFIX = "COOKIE=";
   char *jwtPtr = NULL;
 
-  ngx_log_debug(NGX_LOG_DEBUG, r->connection->log, 0, "validation_type.len %d", validation_type.len);
+  ngx_log_debug(NGX_LOG_DEBUG, r->connection->log, 0, "jwt_location.len %d", jwt_location.len);
 
-  if (validation_type.len == 0 || (validation_type.len == sizeof("AUTHORIZATION") - 1 && ngx_strncmp(validation_type.data, "AUTHORIZATION", sizeof("AUTHORIZATION") - 1) == 0))
+  if (jwt_location.len > sizeof(HEADER_PREFIX) && ngx_strncmp(jwt_location.data, HEADER_PREFIX, sizeof(HEADER_PREFIX) - 1) == 0)
   {
-    static const ngx_str_t authorizationHeaderName = ngx_string("Authorization");
-    const ngx_table_elt_t *authorizationHeader = search_headers_in(r, authorizationHeaderName.data, authorizationHeaderName.len);
+    ngx_table_elt_t *jwtHeaderVal;
 
-    if (authorizationHeader != NULL)
+    jwt_location.data += sizeof(HEADER_PREFIX) - 1;
+    jwt_location.len -= sizeof(HEADER_PREFIX) - 1;
+
+    jwtHeaderVal = search_headers_in(r, jwt_location.data, jwt_location.len);
+
+    if (jwtHeaderVal != NULL)
     {
-      ngx_int_t bearer_length = authorizationHeader->value.len - (sizeof("Bearer ") - 1);
-
-      ngx_log_debug(NGX_LOG_DEBUG, r->connection->log, 0, "Found authorization header len %d", authorizationHeader->value.len);
-
-      if (bearer_length > 0)
+      if (ngx_strncmp(jwtHeaderVal->value.data, BEARER_PREFIX, sizeof(BEARER_PREFIX) - 1) == 0)
       {
-        ngx_str_t authorizationHeaderStr;
-
-        authorizationHeaderStr.data = authorizationHeader->value.data + sizeof("Bearer ") - 1;
-        authorizationHeaderStr.len = bearer_length;
-
-        jwtPtr = ngx_str_t_to_char_ptr(r->pool, authorizationHeaderStr);
-
-        ngx_log_debug(NGX_LOG_DEBUG, r->connection->log, 0, "Authorization header: %s", jwtPtr);
+        jwtHeaderVal->value.data += sizeof(BEARER_PREFIX) - 1;
+        jwtHeaderVal->value.len -= sizeof(BEARER_PREFIX) - 1;
       }
+
+      jwtPtr = ngx_str_t_to_char_ptr(r->pool, jwtHeaderVal->value);
     }
   }
-  else if (validation_type.len > sizeof("COOKIE=") && ngx_strncmp(validation_type.data, "COOKIE=", sizeof("COOKIE=") - 1) == 0)
+  else if (jwt_location.len > sizeof(COOKIE_PREFIX) && ngx_strncmp(jwt_location.data, COOKIE_PREFIX, sizeof(COOKIE_PREFIX) - 1) == 0)
   {
     bool has_cookie = false;
     ngx_str_t jwtCookieVal;
 
-    validation_type.data += sizeof("COOKIE=") - 1;
-    validation_type.len -= sizeof("COOKIE=") - 1;
+    jwt_location.data += sizeof(COOKIE_PREFIX) - 1;
+    jwt_location.len -= sizeof(COOKIE_PREFIX) - 1;
 
 #ifndef NGX_LINKED_LIST_COOKIES
-    if (ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &validation_type, &jwtCookieVal) != NGX_DECLINED)
+    if (ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &jwt_location, &jwtCookieVal) != NGX_DECLINED)
     {
       has_cookie = true;
     }
 #else
-    if (ngx_http_parse_multi_header_lines(r, r->headers_in.cookie, &validation_type, &jwtCookieVal) != NULL)
+    if (ngx_http_parse_multi_header_lines(r, r->headers_in.cookie, &jwt_location, &jwtCookieVal) != NULL)
     {
       has_cookie = true;
     }
