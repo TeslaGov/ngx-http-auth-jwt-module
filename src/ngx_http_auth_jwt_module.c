@@ -14,6 +14,7 @@
 
 #include <jansson.h>
 
+#include "arrays.h"
 #include "ngx_http_auth_jwt_header_processing.h"
 #include "ngx_http_auth_jwt_binary_converters.h"
 #include "ngx_http_auth_jwt_string.h"
@@ -212,8 +213,8 @@ static char *merge_conf(ngx_conf_t *cf, void *parent, void *child)
   ngx_conf_merge_str_value(conf->algorithm, prev->algorithm, "HS256");
   ngx_conf_merge_str_value(conf->keyfile_path, prev->keyfile_path, "");
   ngx_conf_merge_off_value(conf->validate_sub, prev->validate_sub, 0);
-  ngx_conf_merge_ptr_value(conf->extract_request_claims, prev->extract_request_claims, NULL);
-  ngx_conf_merge_ptr_value(conf->extract_request_claims, prev->extract_response_claims, NULL);
+  merge_array(cf->pool, &conf->extract_request_claims, prev->extract_request_claims, sizeof(ngx_str_t));
+  merge_array(cf->pool, &conf->extract_response_claims, prev->extract_response_claims, sizeof(ngx_str_t));
 
   if (conf->enabled == NGX_CONF_UNSET)
   {

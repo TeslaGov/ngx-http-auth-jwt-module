@@ -56,7 +56,7 @@ run_test () {
       printf "${RED}${name} -- unexpected exit code from cURL\n\tcURL Exit Code: ${exitCode}";
       NUM_FAILED=$((${NUM_FAILED} + 1));
     else
-      OKAY=1
+      local okay=1
 
       if [ "${expectedCode}" != "" ]; then
         local responseCode=$(echo "${response}" | grep -Eo 'HTTP/1.1 ([0-9]{3})' | awk '{print $2}')
@@ -64,17 +64,17 @@ run_test () {
         if [ "${expectedCode}" != "${responseCode}" ]; then
           printf "${RED}${name} -- unexpected status code\n\tExpected: ${expectedCode}\n\tActual: ${responseCode}\n\tPath: ${path}"
           NUM_FAILED=$((${NUM_FAILED} + 1))
-          OKAY=0
+          okay=0
         fi
       fi
-
-      if [ "${OKAY}" == "1" ] && [ "${expectedResponseRegex}" != "" ] && echo "${response}" | grep -Eq "${expectedResponseRegex}"; then
+      
+      if [ "${okay}" == '1' ] && [ "${expectedResponseRegex}" != "" ] && ! [[ "${response}" =~ "${expectedResponseRegex}" ]]; then
         printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex}"
         NUM_FAILED=$((${NUM_FAILED} + 1))
-        OKAY=0
+        okay=0
       fi
       
-      if [ "${OKAY}" == "1" ]; then
+      if [ "${okay}" == '1' ]; then
         printf "${GREEN}${name}";
       fi
     fi
@@ -197,34 +197,64 @@ main() {
            -c '200' \
            -x '--header "Auth-Token: Bearer ${JWT_HS256_VALID}"'
 
-  run_test -n 'extracts single claim to request header' \
+  run_test -n 'extracts single claim to request variable' \
            -p '/secure/extract-claim/request/sub' \
-           -r '^Test: sub=some-long-uuid$' \
+           -r '< Test: sub=some-long-uuid' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
-  run_test -n 'extracts multiple claims (single directive) to request header' \
+  run_test -n 'extracts multiple claims (single directive) to request variable' \
            -p '/secure/extract-claim/request/name-1' \
-           -r '^Test: hello world$' \
+           -r '< Test: firstName=hello; lastName=world' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
-  run_test -n 'extracts multiple claims (multiple directives) to request header' \
+  run_test -n 'extracts multiple claims (multiple directives) to request variable' \
            -p '/secure/extract-claim/request/name-2' \
-           -r '^Test: hello world$' \
+           -r '< Test: firstName=hello; lastName=world' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts nested claim to request variable' \
+           -p '/secure/extract-claim/request/nested' \
+           -r '< Test: username=hello.world' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts single claim to response variable' \
+           -p '/secure/extract-claim/response/sub' \
+           -r '< Test: sub=some-long-uuid' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts multiple claims (single directive) to response variable' \
+           -p '/secure/extract-claim/response/name-1' \
+           -r '< Test: firstName=hello; lastName=world' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts multiple claims (multiple directives) to response variable' \
+           -p '/secure/extract-claim/response/name-2' \
+           -r '< Test: firstName=hello; lastName=world' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts nested claim to response variable' \
+           -p '/secure/extract-claim/response/nested' \
+           -r '< Test: username=hello.world' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
   run_test -n 'extracts single claim to response header' \
            -p '/secure/extract-claim/response/sub' \
-           -r '^Test: sub=some-long-uuid$' \
+           -r '< JWT-sub: some-long-uuid' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
   run_test -n 'extracts multiple claims (single directive) to response header' \
            -p '/secure/extract-claim/response/name-1' \
-           -r '^Test: hello world$' \
+           -r '< JWT-firstName: hello' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
   run_test -n 'extracts multiple claims (multiple directives) to response header' \
            -p '/secure/extract-claim/response/name-2' \
-           -r '^Test: hello world$' \
+           -r '< JWT-firstName: hello' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts nested claim to response header' \
+           -p '/secure/extract-claim/response/nested' \
+           -r '< JWT-username: hello.world' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
   if [[ "${NUM_FAILED}" = '0' ]]; then
