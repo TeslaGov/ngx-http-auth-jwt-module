@@ -81,13 +81,16 @@ cp_bin() {
 }
 
 make_release() {
-	printf "${BLUE}Making release for version ${NGINX_VERSION}...${NC}\n"
+	local moduleVersion=${1}
+	local nginxVersion=${2}
+
+	printf "${BLUE}Making release for version ${moduleVersion} for NGINX ${nginxVersion}...${NC}\n"
 
 	build_module
 	cp_bin
 
 	mkdir -p release
-	tar -czvf release/ngx_http_auth_jwt_module_${NGINX_VERSION}.tgz \
+	tar -czvf release/ngx_http_auth_jwt_module_${moduleVersion}_nginx_${nginxVersion}.tgz \
 		README.md \
 		-C bin/usr/lib64/nginx/modules ngx_http_auth_jwt_module.so > /dev/null
 }
@@ -95,12 +98,13 @@ make_release() {
 # Create releases for the current mainline and stable version, as well as the 2 most recent "legacy" versions.
 #   See: https://nginx.org/en/download.html
 make_releases() {
-	VERSIONS=(1.20.2 1.22.1 1.24.0 1.23.4)
+	local moduleVersion=$(git describe --tags --abbrev=0)
+	local nginxVersions=(1.20.2 1.22.1 1.24.0 1.23.4)
 	
 	rm -rf release/*
 
-	for v in ${VERSIONS[@]}; do
-		NGINX_VERSION=${v} make_release
+	for v in ${nginxVersions[@]}; do
+		make_release ${moduleVersion} ${v}
 	done
 }
 
