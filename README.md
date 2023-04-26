@@ -167,13 +167,13 @@ Note the `includePath` additions above -- please update them as appropriate. Nex
 
 #### Cloning `libjwt`
 
-1. Clone this repository as follows (replace `<target_dir>`): `git clone git@github.com:benmcollins/libjwt.git <target_dir>
+1. Clone this repository as follows (replace `<target_dir>`): `git clone git@github.com:benmcollins/libjwt.git <target_dir>`
 2. Enter the directory and switch to the latest tag: `git checkout $(git tag | sort -Vr | head -n 1)`
 3. Update the `includePath` entires shown above to match the location you chose.
 
 #### Cloning `libjansson`
 
-1. Clone this repository as follows (replace `<target_dir>`): `git clone git@github.com:akheron/jansson.git <target_dir>
+1. Clone this repository as follows (replace `<target_dir>`): `git clone git@github.com:akheron/jansson.git <target_dir>`
 2. Enter the directory and switch to the latest tag: `git checkout $(git tag | sort -Vr | head -n 1)`
 3. Update the `includePath` entires shown above to match the location you chose.
 
