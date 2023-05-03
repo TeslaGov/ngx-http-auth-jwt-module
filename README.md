@@ -88,6 +88,8 @@ You may specify claims to be extracted from the JWT and placed on the request an
 
 If you only wish to access a claim as an NGINX variable, you should use `auth_jwt_extract_request_claims` so that the claim does not end up being sent to the client as a response header. However, if you do want the claim to be sent to the client in the response, then use `auth_jwt_extract_response_claims` instead.
 
+_Please note that `number`, `boolean`, `array`, and `object` claims are not supported at this time -- only `string` claims are supported._ An error will be thrown if you attempt to extract a non-string claim.
+
 ### Using Request Claims
 
 For example, you could configure an NGINX location which redirects to the current user's profile. Suppose `sub=abc-123`, the configuration below would redirect to `/profile/abc-123`.
