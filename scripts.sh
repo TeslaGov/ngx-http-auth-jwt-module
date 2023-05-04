@@ -25,7 +25,7 @@ build_module() {
 	docker image pull debian:bullseye-slim
 	docker image pull nginx:${NGINX_VERSION}
 
-	printf "${BLUE}Building module...${NC}\n"
+	printf "${BLUE}Building module for NGINX ${NGINX_VERSION}...${NC}\n"
 	docker image build -t ${FULL_IMAGE_NAME}:latest -t ${FULL_IMAGE_NAME}:${NGINX_VERSION} ${dockerArgs} \
 		--build-arg NGINX_VERSION=${NGINX_VERSION} \
 		--build-arg SOURCE_HASH=${sourceHash} .
@@ -82,15 +82,16 @@ cp_bin() {
 
 make_release() {
 	local moduleVersion=${1}
-	local nginxVersion=${2}
+	
+	NGINX_VERSION=${2}
 
-	printf "${BLUE}Making release for version ${moduleVersion} for NGINX ${nginxVersion}...${NC}\n"
+	printf "${BLUE}Making release for version ${moduleVersion} for NGINX ${NGINX_VERSION}...${NC}\n"
 
 	build_module
 	cp_bin
 
 	mkdir -p release
-	tar -czvf release/ngx_http_auth_jwt_module_${moduleVersion}_nginx_${nginxVersion}.tgz \
+	tar -czvf release/ngx_http_auth_jwt_module_${moduleVersion}_nginx_${NGINX_VERSION}.tgz \
 		README.md \
 		-C bin/usr/lib64/nginx/modules ngx_http_auth_jwt_module.so > /dev/null
 }
