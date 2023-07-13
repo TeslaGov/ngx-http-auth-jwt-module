@@ -67,11 +67,13 @@ auth_jwt_redirect off;
 ```
 ## JWT Locations
 
-By default, the`Authorization` header is used to provide a JWT for validation. However, you may use the `auth_jwt_location` directive to specify the name of the header or cookie which provides the JWT:
+By default, the`Authorization` header is used to provide a JWT for validation. However, you may use the `auth_jwt_location` directive to specify the name of the header, cookie or queryString which provides the JWT:
+the Querystring name must be "token".
 
 ```nginx
 auth_jwt_location HEADER=auth-token;  # get the JWT from the "auth-token" header
 auth_jwt_location COOKIE=auth-token;  # get the JWT from the "auth-token" cookie
+auth_jwt_location QUERYSTRING=token;  # get the JWT from the "token" query string
 ```
 
 ## `sub` Validation

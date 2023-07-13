@@ -609,11 +609,42 @@ static ngx_int_t load_public_key(ngx_conf_t *cf, auth_jwt_conf_t *conf)
   }
 }
 
+ngx_int_t ngx_http_arg(ngx_http_request_t *r, u_char *name, size_t len, ngx_str_t *value)
+{
+  u_char *p, *last;
+  size_t name_len;
+  ngx_str_t args;
+  args = r->args;
+  if (args.len == 0) {
+    return NGX_DECLINED;
+  }
+  p = args.data;
+  last = p + args.len;
+  name_len = ngx_strlen(name);
+  while (p < last) {
+    if ((p = ngx_strlcasestrn(p, last, name, name_len - 1)) == NULL) {
+      return NGX_DECLINED;
+    }
+    if ((p == args.data || *(p - 1) == '&') && (p + name_len == last || *(p + name_len) == '=')) {
+      p += name_len;
+      value->data = p;
+      while (p < last && *p != '&') {
+        p++;
+      }
+      value->len = p - value->data;
+      return NGX_OK;
+    }
+    p += name_len;
+  }
+  return NGX_DECLINED;
+}
+
 static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
 {
   static const char *HEADER_PREFIX = "HEADER=";
   static const char *BEARER_PREFIX = "Bearer ";
   static const char *COOKIE_PREFIX = "COOKIE=";
+  static const char *QUERY_STRING_PREFIX = "QUERYSTRING=";
   char *jwtPtr = NULL;
 
   ngx_log_debug(NGX_LOG_DEBUG, r->connection->log, 0, "jwt_location.len %d", jwt_location.len);
@@ -636,6 +667,17 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
       }
 
       jwtPtr = ngx_str_t_to_char_ptr(r->pool, jwtHeaderVal->value);
+    }
+  }
+  else if (jwt_location.len > sizeof(QUERY_STRING_PREFIX) && ngx_strncmp(jwt_location.data, QUERY_STRING_PREFIX, sizeof(QUERY_STRING_PREFIX) - 1) == 0)
+  {
+    ngx_str_t jwtQueryStringVal;
+    ngx_str_t tokenKey = ngx_string("token");
+    jwt_location.data += sizeof(QUERY_STRING_PREFIX) - 1;
+    jwt_location.len -= sizeof(QUERY_STRING_PREFIX) - 1;
+    if (ngx_http_arg(r, tokenKey.data, tokenKey.len, &jwtQueryStringVal) == NGX_OK)
+    {
+      jwtPtr = ngx_str_t_to_char_ptr(r->pool, jwtQueryStringVal);
     }
   }
   else if (jwt_location.len > sizeof(COOKIE_PREFIX) && ngx_strncmp(jwt_location.data, COOKIE_PREFIX, sizeof(COOKIE_PREFIX) - 1) == 0)
