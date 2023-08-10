@@ -612,7 +612,6 @@ static ngx_int_t load_public_key(ngx_conf_t *cf, auth_jwt_conf_t *conf)
 static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
 {
   static const char *HEADER_PREFIX = "HEADER=";
-  static const char *BEARER_PREFIX = "Bearer ";
   static const char *COOKIE_PREFIX = "COOKIE=";
   char *jwtPtr = NULL;
 
@@ -629,13 +628,21 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
 
     if (jwtHeaderVal != NULL)
     {
+      static const char *BEARER_PREFIX = "Bearer ";
+
       if (ngx_strncmp(jwtHeaderVal->value.data, BEARER_PREFIX, sizeof(BEARER_PREFIX) - 1) == 0)
       {
-        jwtHeaderVal->value.data += sizeof(BEARER_PREFIX) - 1;
-        jwtHeaderVal->value.len -= sizeof(BEARER_PREFIX) - 1;
-      }
+        ngx_str_t jwtHeaderValWithoutBearer = jwtHeaderVal->value;
+        
+        jwtHeaderValWithoutBearer.data += sizeof(BEARER_PREFIX) - 1;
+        jwtHeaderValWithoutBearer.len -= sizeof(BEARER_PREFIX) - 1;
 
-      jwtPtr = ngx_str_t_to_char_ptr(r->pool, jwtHeaderVal->value);
+        jwtPtr = ngx_str_t_to_char_ptr(r->pool, jwtHeaderValWithoutBearer);
+      }
+      else
+      {
+        jwtPtr = ngx_str_t_to_char_ptr(r->pool, jwtHeaderVal->value);
+      }
     }
   }
   else if (jwt_location.len > sizeof(COOKIE_PREFIX) && ngx_strncmp(jwt_location.data, COOKIE_PREFIX, sizeof(COOKIE_PREFIX) - 1) == 0)
