@@ -81,13 +81,17 @@ cp_bin() {
 }
 
 make_release() {
+	set -e
+	
 	local moduleVersion=${1}
 	
 	NGINX_VERSION=${2}
 
 	printf "${BLUE}Making release for version ${moduleVersion} for NGINX ${NGINX_VERSION}...${NC}\n"
 
-	build_module
+	rebuild_module
+	rebuild_test_runner
+	test
 	cp_bin
 
 	mkdir -p release
@@ -100,7 +104,7 @@ make_release() {
 #   See: https://nginx.org/en/download.html
 make_releases() {
 	local moduleVersion=$(git describe --tags --abbrev=0)
-	local nginxVersions=(1.20.2 1.22.1 1.24.0 1.23.4)
+	local nginxVersions=('1.25.1' '1.24.0' '1.22.1' '1.20.2')
 	
 	rm -rf release/*
 
