@@ -72,7 +72,10 @@ By default, the`Authorization` header is used to provide a JWT for validation. H
 ```nginx
 auth_jwt_location HEADER=auth-token;  # get the JWT from the "auth-token" header
 auth_jwt_location COOKIE=auth-token;  # get the JWT from the "auth-token" cookie
+auth_jwt_location QUERY_STRING=jwt-token;   # get the JWT from the "jwt-token" query-string
 ```
+
+Note: If you use the QUERY_STRING location, the given key is stripped from the outgoing request, if the request is to be forwarded.
 
 ## `sub` Validation
 
