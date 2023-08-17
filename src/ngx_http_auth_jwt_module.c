@@ -686,10 +686,7 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
       &token_end
     );
 
-    if (!found_token){
-      return NULL;
-    }
-    else
+    if (found_token)
     {
       int token_len = token_end - token_value_start;
 
