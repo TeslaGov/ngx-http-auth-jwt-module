@@ -719,11 +719,8 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
 
       if (args_ptr != NULL)
       {
-        int free_ok = ngx_pfree(r->pool, r->args.data);
-        if (free_ok == NGX_OK) {
-          r->args.data = args_ptr;
-          r->args.len = mutated_args_len;
-        }
+        r->args.data = args_ptr;
+        r->args.len = mutated_args_len;
       }
     }
   }
