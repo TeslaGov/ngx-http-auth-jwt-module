@@ -612,8 +612,8 @@ static ngx_int_t load_public_key(ngx_conf_t *cf, auth_jwt_conf_t *conf)
 
 static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
 {
-  static const char *HEADER_PREFIX = "HEADER=";
-  static const char *COOKIE_PREFIX = "COOKIE=";
+  static const char HEADER_PREFIX[] = "HEADER=";
+  static const char COOKIE_PREFIX[] = "COOKIE=";
   static const char QUERY_STRING_PREFIX[] = "QUERYSTRING=";
   char *jwtPtr = NULL;
 
