@@ -614,7 +614,7 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
 {
   static const char *HEADER_PREFIX = "HEADER=";
   static const char *COOKIE_PREFIX = "COOKIE=";
-  static const char QUERY_STRING_PREFIX[] = "QUERY_STRING=";
+  static const char QUERY_STRING_PREFIX[] = "QUERYSTRING=";
   char *jwtPtr = NULL;
 
   ngx_log_debug(NGX_LOG_DEBUG, r->connection->log, 0, "jwt_location.len %d", jwt_location.len);
@@ -686,40 +686,48 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
       &token_end
     );
 
-    if (!found_token) return NULL;
-
-    int token_len = token_end - token_value_start;
-
-    jwtPtr = ngx_palloc(r->pool, token_len + 1);
-    if (jwtPtr != NULL) {
-      ngx_memcpy(jwtPtr, r->args.data + token_value_start, token_len);
-      *(jwtPtr + token_len) = '\0';
+    if (!found_token){
+      return NULL;
     }
+    else
+    {
+      int token_len = token_end - token_value_start;
 
-    // strip first or last & from args
-    if (token_key_start > 0) {
-      token_key_start--;
-    } else if (token_end < (r->args.len - 1)) {
-      token_end++;
-    }
+      jwtPtr = ngx_palloc(r->pool, token_len + 1);
+      if (jwtPtr != NULL) {
+        ngx_memcpy(jwtPtr, r->args.data + token_value_start, token_len);
+        *(jwtPtr + token_len) = '\0';
+      }
 
-    size_t mutated_args_len = 0;
+      // strip first or last & from args
+      if (token_key_start > 0)
+      {
+        token_key_start--;
+      }
+      else if (token_end < (r->args.len - 1))
+      {
+        token_end++;
+      }
 
-    // Strip key from args
-    u_char *args_ptr = create_args_without_token(
-      r->pool,
-      &r->args,
-      token_key_start,
-      token_end,
-      &mutated_args_len
-    );
+      size_t mutated_args_len = 0;
 
-    if (args_ptr == NULL) return jwtPtr;
+      // Strip key from args
+      u_char *args_ptr = create_args_without_token(
+        r->pool,
+        &r->args,
+        token_key_start,
+        token_end,
+        &mutated_args_len
+      );
 
-    int free_ok = ngx_pfree(r->pool, r->args.data);
-    if (free_ok == NGX_OK) {
-      r->args.data = args_ptr;
-      r->args.len = mutated_args_len;
+      if (args_ptr != NULL)
+      {
+        int free_ok = ngx_pfree(r->pool, r->args.data);
+        if (free_ok == NGX_OK) {
+          r->args.data = args_ptr;
+          r->args.len = mutated_args_len;
+        }
+      }
     }
   }
   return jwtPtr;
