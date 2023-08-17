@@ -1,5 +1,8 @@
 #include "ngx_http_auth_jwt_args_processing.h"
 
+/* Creates a new version of args without token present.
+ *  Writes length of new args to `*write_args_len`.
+ */
 u_char *create_args_without_token(
     ngx_pool_t *pool,
     ngx_str_t *args,
@@ -7,27 +10,28 @@ u_char *create_args_without_token(
     size_t token_end,
     size_t *write_args_len
 ) {
-  /* Creates a new version of args without token present.
-     Writes length of new args to *write_args_len
-   */
   *write_args_len = args->len - token_end + token_key_start;
-
   u_char *args_ptr = ngx_palloc(pool, *write_args_len);
   
-  if (args_ptr == NULL) return NULL;
-
-  if (token_key_start > 0) {
-    ngx_memcpy(args_ptr, args->data, token_key_start);
+  if (args_ptr == NULL)
+  {
+    return NULL;
   }
-  if (token_end < (args->len - 1)) {
-    ngx_memcpy(
-      args_ptr + token_key_start,
-      args->data + token_end,
-      *write_args_len - token_key_start
-    );
+  else
+  {
+    if (token_key_start > 0) {
+      ngx_memcpy(args_ptr, args->data, token_key_start);
+    }
+    if (token_end < (args->len - 1)) {
+      ngx_memcpy(
+        args_ptr + token_key_start,
+        args->data + token_end,
+        *write_args_len - token_key_start
+      );
+    }
+  
+    return args_ptr;
   }
-
-  return args_ptr;
 }
 
 bool search_token_from_args(
