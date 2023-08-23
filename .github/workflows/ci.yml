@@ -128,7 +128,7 @@ jobs:
 
             - Build Date: `${{ steps.vars.outputs.date_now }}`
             - Commit: ${{ github.sha }}
-          name: Development build
+          name: 'Development build: ${{ github.ref_name }}@${{ github.sha }}'
           prerelease: true
           removeArtifacts: true
           tag: dev-build
