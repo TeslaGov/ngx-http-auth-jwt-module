@@ -122,7 +122,6 @@ jobs:
           artifacts: artifacts/*/*
           body: |
             > [!WARNING]
-            > [!WARNING]
             > This is an automatically generated pre-release version of the module, which includes the latest master branch changes.
             > Please report any bugs you find to the issue tracker.
 
