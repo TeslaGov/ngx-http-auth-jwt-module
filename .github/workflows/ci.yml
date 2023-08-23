@@ -23,7 +23,7 @@ jobs:
         #   * Debian and Ubuntu's repos have v1.10.2
         #   * EPEL has v1.12.1
         # This compilles against each version prior to a breaking change and the latest release
-        libjwt-version: ['v1.12.0', 'v1.14.0', 'v1.15.3']
+        libjwt-version: ['1.12.0', '1.14.0', '1.15.3']
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
