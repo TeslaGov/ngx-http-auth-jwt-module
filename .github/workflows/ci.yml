@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: 
+      - 'master'
+  pull_request:
+    branches:
+      - 'master'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        # Each nginx version to build against
+        nginx-version: ['1.20.2', '1.22.1', '1.24.0', '1.25.1']
+        # The following versions of libjwt are compatible:
+        #   * v1.0 - v1.12.0
+        #   * v1.12.1 - v1.14.0
+        #   * v1.15.0+
+        # At the time of writing this:
+        #   * Debian and Ubuntu's repos have v1.10.2
+        #   * EPEL has v1.12.1
+        # This compilles against each version prior to a breaking change and the latest release
+        libjwt-version: ['1.12.0', '1.14.0', '1.15.3']
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        path: 'ngx-http-auth-jwt-module'
+
+    - name: Download jansson
+      uses: actions/checkout@v3
+      with:
+        repository: 'akheron/jansson'
+        ref: 'v2.14'
+        path: 'jansson'
+
+    - name: Build jansson
+      working-directory: ./jansson
+      run: |
+        cmake . -DJANSSON_BUILD_SHARED_LIBS=1 -DJANSSON_BUILD_DOCS=OFF && \
+        make && \
+        make check && \
+        sudo make install
+        
+    - name: Download libjwt
+      uses: actions/checkout@v3
+      with:
+        repository: 'benmcollins/libjwt'
+        ref: 'v${{matrix.libjwt-version}}'
+        path: 'libjwt'
+
+    - name: Build libjwt
+      working-directory: ./libjwt
+      run: |
+        autoreconf -i && \
+        ./configure && \
+        make all && \
+        sudo make install
+
+    - name: Download NGINX
+      run: | 
+        mkdir nginx
+        curl -O http://nginx.org/download/nginx-${{matrix.nginx-version}}.tar.gz
+        tar -xzf nginx-${{matrix.nginx-version}}.tar.gz --strip-components 1 -C nginx
+        
+    - name: Run configure
+      working-directory: ./nginx
+      run: |
+        BUILD_FLAGS=''
+        MAJ=$(echo ${{matrix.nginx-version}} | cut -f1 -d.)
+        MIN=$(echo ${{matrix.nginx-version}} | cut -f2 -d.)
+        REV=$(echo ${{matrix.nginx-version}} | cut -f3 -d.)
+        if [ "${MAJ}" -gt 1 ] || [ "${MAJ}" -eq 1 -a "${MIN}" -ge 23 ]; then
+        BUILD_FLAGS="${BUILD_FLAGS} --with-cc-opt='-DNGX_LINKED_LIST_COOKIES=1'"
+        fi
+        ./configure --with-compat --add-dynamic-module=../ngx-http-auth-jwt-module ${BUILD_FLAGS}
+        
+    - name: Run make
+      working-directory: ./nginx
+      run: make modules
+
+    - name: Create release archive
+      run: |
+        cp ./nginx/objs/ngx_http_auth_jwt_module.so ./
+        tar czf ngx_http_auth_jwt_module_${{github.ref_name}}_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz ngx_http_auth_jwt_module.so
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v3
+      with:
+        if-no-files-found: error
+        name: ngx_http_auth_jwt_module_${{github.ref_name}}_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz
+        path: ngx_http_auth_jwt_module_${{github.ref_name}}_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz
+
+  update_releases_page:
+    name: Upload builds to Releases
+    if: github.event_name != 'pull_request'
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Set up variables
+        id: vars
+        run: |
+          echo "date_now=$(date --rfc-3339=seconds)" >> "${GITHUB_OUTPUT}"
+          
+      - name: Download build artifacts from previous jobs
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Upload builds to Releases
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          artifactErrorsFailBuild: true
+          artifacts: artifacts/*/*
+          body: |
+            > [!WARNING]
+            > This is an automatically generated pre-release version of the module, which includes the latest master branch changes.
+            > Please report any bugs you find to the issue tracker.
+
+            - Build Date: `${{ steps.vars.outputs.date_now }}`
+            - Commit: ${{ github.sha }}
+          name: 'Development build: ${{ github.ref_name }}@${{ github.sha }}'
+          prerelease: true
+          removeArtifacts: true
+          tag: dev-build
