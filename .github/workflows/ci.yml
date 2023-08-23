@@ -122,11 +122,12 @@ jobs:
           artifacts: artifacts/*/*
           body: |
             > [!WARNING]
-            > This is an automatically generated in-development pre-release version of the application, that includes the latest master branch changes.
+            > [!WARNING]
+            > This is an automatically generated pre-release version of the module, which includes the latest master branch changes.
             > Please report any bugs you find to the issue tracker.
 
-            - Last build date: `${{ steps.vars.outputs.date_now }}`
-            - Reference commit: ${{ github.sha }}
+            - Build Date: `${{ steps.vars.outputs.date_now }}`
+            - Commit: ${{ github.sha }}
           name: Development build
           prerelease: true
           removeArtifacts: true
