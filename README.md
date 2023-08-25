@@ -33,6 +33,12 @@ This module requires several new `nginx.conf` directives, which can be specified
 
 The default algorithm is `HS256`, for symmetric key validation. When using one of the `HS*` algorithms, the value for `auth_jwt_key` should be specified in binhex format. It is recommended to use at least 256 bits of data (32 pairs of hex characters or 64 characters in total). Note that using more than 512 bits will not increase the security. For key guidelines please see [NIST Special Publication 800-107 Recommendation for Applications Using Approved Hash Algorithms](https://csrc.nist.gov/publications/detail/sp/800-107/rev-1/final), Section 5.3.2 The HMAC Key.
 
+To generate a 256-bit key (32 pairs of hex characters; 64 characters in total):
+
+```bash
+openssl rand -hex 32
+```
+
 ### Additional Supported Algorithms
 
 The configuration also supports RSA public key validation via (e.g.) `auth_jwt_algorithm RS256`. When using the `RS*` alhorithms, the `auth_jwt_key` field must be set to your public key **OR** `auth_jwt_use_keyfile` should be set to `on` and `auth_jwt_keyfile_path` should point to the public key on disk. NGINX won't start if `auth_jwt_use_keyfile` is set to `on` and a key file is not provided.
