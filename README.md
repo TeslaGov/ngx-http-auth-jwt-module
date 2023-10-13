@@ -231,7 +231,7 @@ The tests use a customized NGINX image, distinct from the main image, as well as
 
 After making changes and finding that some tests fail, it can be difficult to understand why. By default, logs are written to Docker's internal log mechanism, but they won't be persisted after the test run completes and the containers are removed.
 
-In order to persist logs, you can configure the log driver to use. You can do this by setting the environment variable `LOG_DRIVER` before running the tests. On Linux/Unix systems, you can use the driver `journald`, as follows:
+If you'd like to persist logs across test runs, you can configure the log driver to use `journald` (on Linux/Unix systems for example). You can do this by setting the environment variable `LOG_DRIVER` before running the tests:
 
 ```shell
 # need to rebuild the test runner with the proper log driver
