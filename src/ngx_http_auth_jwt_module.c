@@ -611,8 +611,8 @@ static ngx_int_t load_public_key(ngx_conf_t *cf, auth_jwt_conf_t *conf)
 
 static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
 {
-  static const char *HEADER_PREFIX = "HEADER=";
-  static const char *COOKIE_PREFIX = "COOKIE=";
+  static const char HEADER_PREFIX[8] = "HEADER=";
+  static const char COOKIE_PREFIX[8] = "COOKIE=";
   char *jwtPtr = NULL;
 
   ngx_log_debug(NGX_LOG_DEBUG, r->connection->log, 0, "jwt_location.len %d", jwt_location.len);
@@ -628,12 +628,12 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
 
     if (jwtHeaderVal != NULL)
     {
-      static const char *BEARER_PREFIX = "Bearer ";
+      static const char BEARER_PREFIX[8] = "Bearer ";
 
       if (ngx_strncmp(jwtHeaderVal->value.data, BEARER_PREFIX, sizeof(BEARER_PREFIX) - 1) == 0)
       {
         ngx_str_t jwtHeaderValWithoutBearer = jwtHeaderVal->value;
-        
+
         jwtHeaderValWithoutBearer.data += sizeof(BEARER_PREFIX) - 1;
         jwtHeaderValWithoutBearer.len -= sizeof(BEARER_PREFIX) - 1;
 
