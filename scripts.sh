@@ -5,11 +5,17 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# supported NGINX versions -- for binary distribution
+NGINX_VERSION_MAINLINE='1.25.3'
+NGINX_VERSION_STABLE='1.24.0'
+NGINX_VERSION_LEGACY_1='1.22.1'
+NGINX_VERSION_LEGACY_2='1.20.2'
+
 export ORG_NAME=${ORG_NAME:-teslagov}
 export IMAGE_NAME=${IMAGE_NAME:-jwt-nginx}
 export FULL_IMAGE_NAME=${ORG_NAME}/${IMAGE_NAME}
 export CONTAINER_NAME_PREFIX=${CONTAINER_NAME_PREFIX:-jwt-nginx-test}
-export NGINX_VERSION=${NGINX_VERSION:-1.24.0}
+export NGINX_VERSION=${NGINX_VERSION:-${NGINX_VERSION_STABLE}}
 
 all() {
 	build_module
@@ -104,8 +110,8 @@ make_release() {
 #   See: https://nginx.org/en/download.html
 make_releases() {
 	local moduleVersion=$(git describe --tags --abbrev=0)
-	local nginxVersions=('1.25.1' '1.24.0' '1.22.1' '1.20.2')
-	
+	local nginxVersions=(${NGINX_VERSION_MAINLINE} ${NGINX_VERSION_STABLE} ${NGINX_VERSION_LEGACY_1} ${NGINX_VERSION_LEGACY_2})
+
 	rm -rf release/*
 
 	for v in ${nginxVersions[@]}; do
