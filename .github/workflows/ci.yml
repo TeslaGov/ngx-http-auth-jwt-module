@@ -15,10 +15,11 @@ on:
 
 jobs:
   build:
+    name: "NGINX: ${{ matrix.nginx-version }}; libjwt: ${{ matrix.libjwt-version }}"
     strategy:
       matrix:
         # Each nginx version to build against
-        nginx-version: ['1.20.2', '1.22.1', '1.24.0', '1.25.1']
+        nginx-version: ['1.20.2', '1.22.1', '1.24.0', '1.25.3']
         # The following versions of libjwt are compatible:
         #   * v1.0 - v1.12.0
         #   * v1.12.1 - v1.14.0
@@ -90,14 +91,14 @@ jobs:
     - name: Create release archive
       run: |
         cp ./nginx/objs/ngx_http_auth_jwt_module.so ./
-        tar czf ngx_http_auth_jwt_module_${{github.ref_name}}_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz ngx_http_auth_jwt_module.so
+        tar czf ngx_http_auth_jwt_module_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz ngx_http_auth_jwt_module.so
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v3
       with:
         if-no-files-found: error
-        name: ngx_http_auth_jwt_module_${{github.ref_name}}_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz
-        path: ngx_http_auth_jwt_module_${{github.ref_name}}_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz
+        name: ngx_http_auth_jwt_module_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz
+        path: ngx_http_auth_jwt_module_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz
 
   update_releases_page:
     name: Upload builds to Releases
