@@ -489,7 +489,7 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
     }
 
     r->headers_out.location->hash = 1;
-    r->headers_out.location->key.len = sizeof("Location") - 1;
+    r->headers_out.location->key.len = strlen("Location");
     r->headers_out.location->key.data = (u_char *)"Location";
 
     if (r->method == NGX_HTTP_GET)
@@ -526,21 +526,21 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
       uri_escaped.len = escaped_len;
       ngx_escape_uri(uri_escaped.data, uri.data, uri.len, NGX_ESCAPE_ARGS);
 
-      r->headers_out.location->value.len = loginlen + sizeof("?return_url=") - 1 + strlen(scheme) + sizeof("://") - 1 + server.len + uri_escaped.len;
+      r->headers_out.location->value.len = loginlen + strlen("?return_url=") + strlen(scheme) + strlen("://") + server.len + uri_escaped.len;
 
       return_url = ngx_palloc(r->pool, r->headers_out.location->value.len);
       ngx_memcpy(return_url, jwtcf->loginurl.data, jwtcf->loginurl.len);
 
       return_url_idx = jwtcf->loginurl.len;
-      ngx_memcpy(return_url + return_url_idx, "?return_url=", sizeof("?return_url=") - 1);
+      ngx_memcpy(return_url + return_url_idx, "?return_url=", strlen("?return_url="));
 
-      return_url_idx += sizeof("?return_url=") - 1;
+      return_url_idx += strlen("?return_url=");
       ngx_memcpy(return_url + return_url_idx, scheme, strlen(scheme));
 
       return_url_idx += strlen(scheme);
-      ngx_memcpy(return_url + return_url_idx, "://", sizeof("://") - 1);
+      ngx_memcpy(return_url + return_url_idx, "://", strlen("://"));
 
-      return_url_idx += sizeof("://") - 1;
+      return_url_idx += strlen("://");
       ngx_memcpy(return_url + return_url_idx, server.data, server.len);
 
       return_url_idx += server.len;
@@ -617,12 +617,12 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
 
   ngx_log_debug(NGX_LOG_DEBUG, r->connection->log, 0, "jwt_location.len %d", jwt_location.len);
 
-  if (jwt_location.len > sizeof(HEADER_PREFIX) && ngx_strncmp(jwt_location.data, HEADER_PREFIX, sizeof(HEADER_PREFIX) - 1) == 0)
+  if (jwt_location.len > strlen(HEADER_PREFIX) && ngx_strncmp(jwt_location.data, HEADER_PREFIX, strlen(HEADER_PREFIX)) == 0)
   {
     ngx_table_elt_t *jwtHeaderVal;
 
-    jwt_location.data += sizeof(HEADER_PREFIX) - 1;
-    jwt_location.len -= sizeof(HEADER_PREFIX) - 1;
+    jwt_location.data += strlen(HEADER_PREFIX);
+    jwt_location.len -= strlen(HEADER_PREFIX);
 
     jwtHeaderVal = search_headers_in(r, jwt_location.data, jwt_location.len);
 
@@ -630,12 +630,12 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
     {
       static const char *BEARER_PREFIX = "Bearer ";
 
-      if (ngx_strncmp(jwtHeaderVal->value.data, BEARER_PREFIX, sizeof(BEARER_PREFIX) - 1) == 0)
+      if (ngx_strncmp(jwtHeaderVal->value.data, BEARER_PREFIX, strlen(BEARER_PREFIX)) == 0)
       {
         ngx_str_t jwtHeaderValWithoutBearer = jwtHeaderVal->value;
         
-        jwtHeaderValWithoutBearer.data += sizeof(BEARER_PREFIX) - 1;
-        jwtHeaderValWithoutBearer.len -= sizeof(BEARER_PREFIX) - 1;
+        jwtHeaderValWithoutBearer.data += strlen(BEARER_PREFIX);
+        jwtHeaderValWithoutBearer.len -= strlen(BEARER_PREFIX);
 
         jwtPtr = ngx_str_t_to_char_ptr(r->pool, jwtHeaderValWithoutBearer);
       }
@@ -645,13 +645,13 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
       }
     }
   }
-  else if (jwt_location.len > sizeof(COOKIE_PREFIX) && ngx_strncmp(jwt_location.data, COOKIE_PREFIX, sizeof(COOKIE_PREFIX) - 1) == 0)
+  else if (jwt_location.len > strlen(COOKIE_PREFIX) && ngx_strncmp(jwt_location.data, COOKIE_PREFIX, strlen(COOKIE_PREFIX)) == 0)
   {
     bool has_cookie = false;
     ngx_str_t jwtCookieVal;
 
-    jwt_location.data += sizeof(COOKIE_PREFIX) - 1;
-    jwt_location.len -= sizeof(COOKIE_PREFIX) - 1;
+    jwt_location.data += strlen(COOKIE_PREFIX);
+    jwt_location.len -= strlen(COOKIE_PREFIX);
 
 #ifndef NGX_LINKED_LIST_COOKIES
     if (ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &jwt_location, &jwtCookieVal) != NGX_DECLINED)
