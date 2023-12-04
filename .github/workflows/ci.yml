@@ -15,6 +15,7 @@ on:
 
 jobs:
   build:
+    name: "NGINX: ${{ matrix.nginx-version }}; libjwt: ${{ matrix.libjwt-version }}"
     strategy:
       matrix:
         # Each nginx version to build against
