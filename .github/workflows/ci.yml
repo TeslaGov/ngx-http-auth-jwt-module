@@ -90,14 +90,14 @@ jobs:
     - name: Create release archive
       run: |
         cp ./nginx/objs/ngx_http_auth_jwt_module.so ./
-        tar czf ngx_http_auth_jwt_module_${{github.ref_name}}_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz ngx_http_auth_jwt_module.so
+        tar czf ngx_http_auth_jwt_module_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz ngx_http_auth_jwt_module.so
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v3
       with:
         if-no-files-found: error
-        name: ngx_http_auth_jwt_module_${{github.ref_name}}_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz
-        path: ngx_http_auth_jwt_module_${{github.ref_name}}_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz
+        name: ngx_http_auth_jwt_module_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz
+        path: ngx_http_auth_jwt_module_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz
 
   update_releases_page:
     name: Upload builds to Releases
