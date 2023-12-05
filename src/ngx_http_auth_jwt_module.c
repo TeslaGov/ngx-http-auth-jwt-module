@@ -337,7 +337,7 @@ static ngx_int_t handle_request(ngx_http_request_t *r)
             return redirect(r, jwtcf);
           }
         }
-        else if (algorithm.len == 5 && ngx_strncmp(algorithm.data, "RS", 2) == 0)
+        else if (algorithm.len == 5 && (ngx_strncmp(algorithm.data, "RS", 2) == 0 || ngx_strncmp(algorithm.data, "ES", 2) == 0))
         {
           if (jwtcf->use_keyfile == 1)
           {
@@ -633,7 +633,7 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
       if (ngx_strncmp(jwtHeaderVal->value.data, BEARER_PREFIX, strlen(BEARER_PREFIX)) == 0)
       {
         ngx_str_t jwtHeaderValWithoutBearer = jwtHeaderVal->value;
-        
+
         jwtHeaderValWithoutBearer.data += strlen(BEARER_PREFIX);
         jwtHeaderValWithoutBearer.len -= strlen(BEARER_PREFIX);
 
