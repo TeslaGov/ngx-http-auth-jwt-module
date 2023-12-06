@@ -9,4 +9,7 @@ RUN echo "Config Hash: ${CONFIG_HASH}"
 COPY /docker-entrypoint.d/* /docker-entrypoint.d/
 COPY /etc/nginx/conf.d/test.conf /etc/nginx/conf.d/test.conf
 COPY /etc/nginx/rsa_key_2048-pub.pem /etc/nginx/rsa-key.conf
+COPY /etc/nginx/ec_key_256-pub.pem /etc/nginx/ec-256-key.conf
+COPY /etc/nginx/ec_key_384-pub.pem /etc/nginx/ec-384-key.conf
+COPY /etc/nginx/ec_key_521-pub.pem /etc/nginx/ec-521-key.conf
 RUN sed -i "s|%{PORT}|${PORT}|" /etc/nginx/conf.d/test.conf
