@@ -458,12 +458,14 @@ static auth_jwt_ctx_t *get_or_init_jwt_module_ctx(ngx_http_request_t *r, auth_jw
 static auth_jwt_ctx_t *get_request_jwt_ctx(ngx_http_request_t *r)
 {
   auth_jwt_conf_t *jwtcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
+
   if(!jwtcf->enabled)
   {
     return NULL;
   }
 
   auth_jwt_ctx_t *ctx = get_or_init_jwt_module_ctx(r, jwtcf);
+
   if (ctx == NULL)
   {
     return NULL;
@@ -475,6 +477,7 @@ static auth_jwt_ctx_t *get_request_jwt_ctx(ngx_http_request_t *r)
   }
 
   char *jwtPtr = get_jwt(r, jwtcf->jwt_location);
+
   if (jwtPtr == NULL)
   {
     ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a JWT");
