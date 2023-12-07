@@ -290,40 +290,59 @@ static char *merge_extract_var_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *
   {
     // add this claim's name to the config struct
     ngx_str_t *element = ngx_array_push(claims);
+    
     *element = values[i];
 
     // add an http variable for this claim
     size_t var_name_len = 10 + element->len;
     u_char *buf = ngx_palloc(cf->pool, sizeof(u_char) * var_name_len);
+    
     if (buf == NULL)
     {
       return NGX_CONF_ERROR;
     }
-    ngx_sprintf(buf, "jwt_claim_%V", element);
-    ngx_str_t *var_name = ngx_palloc(cf->pool, sizeof(ngx_str_t));
-    if (var_name == NULL)
+    else
     {
-      return NGX_CONF_ERROR;
-    }
-    var_name->data = buf;
-    var_name->len = var_name_len;
-    // NGX_HTTP_VAR_CHANGEABLE simplifies the required logic by assuming a JWT claim will always be the same for a given request
-    ngx_http_variable_t *http_var = ngx_http_add_variable(cf, var_name, NGX_HTTP_VAR_CHANGEABLE);
-    if (http_var == NULL)
-    {
-      ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to add variable %V", var_name);
-      return NGX_CONF_ERROR;
-    }
-
-    http_var->get_handler = get_jwt_var_claim;
-
-    // store the index of this new claim in the claims array as the "data" that will be passed to the getter
-    ngx_uint_t *claim_idx = ngx_palloc(cf->pool, sizeof(ngx_uint_t));
-    if (claim_idx == NULL) {
+      ngx_sprintf(buf, "jwt_claim_%V", element);
+      ngx_str_t *var_name = ngx_palloc(cf->pool, sizeof(ngx_str_t));
+      
+      if (var_name == NULL)
+      {
         return NGX_CONF_ERROR;
+      }
+      else
+      {
+        var_name->data = buf;
+        var_name->len = var_name_len;
+        
+        // NGX_HTTP_VAR_CHANGEABLE simplifies the required logic by assuming a JWT claim will always be the same for a given request
+        ngx_http_variable_t *http_var = ngx_http_add_variable(cf, var_name, NGX_HTTP_VAR_CHANGEABLE);
+        
+        if (http_var == NULL)
+        {
+          ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to add variable %V", var_name);
+          
+          return NGX_CONF_ERROR;
+        }
+        else
+        {
+          http_var->get_handler = get_jwt_var_claim;
+      
+          // store the index of this new claim in the claims array as the "data" that will be passed to the getter
+          ngx_uint_t *claim_idx = ngx_palloc(cf->pool, sizeof(ngx_uint_t));
+          
+          if (claim_idx == NULL)
+          {
+              return NGX_CONF_ERROR;
+          }
+          else
+          {
+            *claim_idx = claims->nelts - 1;
+            http_var->data = (uintptr_t) claim_idx;
+          }
+        }
+      }
     }
-    *claim_idx = claims->nelts - 1;
-    http_var->data = (uintptr_t) claim_idx;
   }
 
   return NGX_CONF_OK;
@@ -333,21 +352,26 @@ static ngx_int_t get_jwt_var_claim(ngx_http_request_t *r, ngx_http_variable_valu
 {
   ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "getting jwt value for var index %l", *((ngx_uint_t*) data));
   auth_jwt_ctx_t *ctx = get_request_jwt_ctx(r);
+  
   if (ctx == NULL)
   {
     ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "no module context found while getting jwt value");
+    
     return NGX_ERROR;
   }
-
-  ngx_uint_t *claim_idx = (ngx_uint_t*) data;
-  ngx_str_t claim_value = ((ngx_str_t*) ctx->claim_values->elts)[*claim_idx];
-  v->valid = 1;
-  v->no_cacheable = 0;
-  v->not_found = 0;
-  v->len = claim_value.len;
-  v->data = claim_value.data;
-
-  return NGX_OK;
+  else
+  {
+    ngx_uint_t *claim_idx = (ngx_uint_t*) data;
+    ngx_str_t claim_value = ((ngx_str_t*) ctx->claim_values->elts)[*claim_idx];
+    
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->len = claim_value.len;
+    v->data = claim_value.data;
+  
+    return NGX_OK;
+  }
 }
 
 static char *merge_extract_claims(ngx_conf_t *cf, ngx_array_t *claims)
@@ -396,32 +420,37 @@ static char *merge_extract_response_claims(ngx_conf_t *cf, ngx_command_t *cmd, v
 static auth_jwt_ctx_t *get_or_init_jwt_module_ctx(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
 {
   auth_jwt_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_auth_jwt_module);
+  
   if (ctx != NULL)
   {
     return ctx;
   }
-
-  // context does not yet exist, so let's create one, initialize it, and set it
-  ctx = ngx_pcalloc(r->pool, sizeof(auth_jwt_ctx_t));
-  if (ctx == NULL)
+  else
   {
-    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "error allocating jwt module context");
+    // context does not yet exist, so let's create one, initialize it, and set it
+    ctx = ngx_pcalloc(r->pool, sizeof(auth_jwt_ctx_t));
+    
+    if (ctx == NULL)
+    {
+      ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "error allocating jwt module context");
+      return ctx;
+    }
+    else if (jwtcf->extract_claims != NULL)
+    {
+      ctx->claim_values = ngx_array_create(r->pool, jwtcf->extract_claims->nelts, sizeof(ngx_str_t));
+      
+      if (ctx->claim_values == NULL)
+      {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "error initializing jwt module context");
+        return NULL;
+      }
+    }
+    
+    ctx->validation_status = NGX_AGAIN;
+    ngx_http_set_ctx(r, ctx, ngx_http_auth_jwt_module);
+    
     return ctx;
   }
-
-  if (jwtcf->extract_claims != NULL)
-  {
-    ctx->claim_values = ngx_array_create(r->pool, jwtcf->extract_claims->nelts, sizeof(ngx_str_t));
-    if (ctx->claim_values == NULL)
-    {
-      ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "error initializing jwt module context");
-      return NULL;
-    }
-  }
-  
-  ctx->validation_status = NGX_AGAIN;
-  ngx_http_set_ctx(r, ctx, ngx_http_auth_jwt_module);
-  return ctx;
 }
 
 // this creates the module's context struct and extracts claim vars the first time it is called,
@@ -592,28 +621,33 @@ static int validate_sub(auth_jwt_conf_t *jwtcf, jwt_t *jwt)
 static ngx_int_t extract_var_claims(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf, jwt_t *jwt, auth_jwt_ctx_t *ctx)
 {
   ngx_array_t *claims = jwtcf->extract_claims;
+  
   if (claims == NULL || claims->nelts == 0)
   {
     return NGX_OK;
   }
-
-  const ngx_str_t *claimsPtr = claims->elts;
-
-  for (uint i = 0; i < claims->nelts; ++i)
+  else
   {
-    const ngx_str_t claim = claimsPtr[i];
-    const char *value = jwt_get_grant(jwt, (char *)claim.data);
-
-    ngx_str_t nsval = ngx_string("");
-    if (value != NULL && strlen(value) > 0)
+    const ngx_str_t *claimsPtr = claims->elts;
+  
+    for (uint i = 0; i < claims->nelts; ++i)
     {
-      nsval = char_ptr_to_ngx_str_t(r->pool, value);
+      const ngx_str_t claim = claimsPtr[i];
+      const char *value = jwt_get_grant(jwt, (char *)claim.data);
+  
+      ngx_str_t nsval = ngx_string("");
+      
+      if (value != NULL && strlen(value) > 0)
+      {
+        nsval = char_ptr_to_ngx_str_t(r->pool, value);
+      }
+      
+      ((ngx_str_t*) ctx->claim_values->elts)[i] = nsval;
+      ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "set jwt var %V to value %s", &claim, nsval.data);
     }
-    ((ngx_str_t*) ctx->claim_values->elts)[i] = nsval;
-    ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "set jwt var %V to value %s", &claim, nsval.data);
+  
+    return NGX_OK;
   }
-
-  return NGX_OK;
 }
 
 static void extract_claims(ngx_http_request_t *r, jwt_t *jwt, ngx_array_t *claims, ngx_int_t (*set_header)(ngx_http_request_t *r, ngx_str_t *key, ngx_str_t *value))
