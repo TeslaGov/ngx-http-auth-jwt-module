@@ -3,23 +3,20 @@ version: '3.3'
 services:
 
   nginx:
-    container_name: ${CONTAINER_NAME_PREFIX}
+    container_name: ${TEST_CONTAINER_NAME_PREFIX}-nginx
     build:
       context: .
-      dockerfile: Dockerfile-test-nginx
+      dockerfile: test-nginx.dockerfile
       args:
-        BASE_IMAGE: ${FULL_IMAGE_NAME}:${NGINX_VERSION:-latest}
-    command: [nginx-debug, '-g', 'daemon off;']
+        BASE_IMAGE: ${FULL_IMAGE_NAME}:${NGINX_VERSION}
     logging:
       driver: ${LOG_DRIVER:-journald}
 
   runner:
-    container_name: ${CONTAINER_NAME_PREFIX}-runner
+    container_name: ${TEST_CONTAINER_NAME_PREFIX}-runner
     build:
       context: .
-      dockerfile: Dockerfile-test-runner
-    environment:
-      BASE_IMAGE: ${FULL_IMAGE_NAME}:${NGINX_VERSION:-latest}
+      dockerfile: test-runner.dockerfile
     
     depends_on:
       - nginx

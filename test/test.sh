@@ -1,7 +1,6 @@
-#!/bin/bash -u
+#!/bin/bash -eu
 
 # set a test # here to execute only that test and output additional info
-PORT=${1:-8000}
 DEBUG=
 
 RED='\e[31m'
@@ -18,35 +17,40 @@ run_test () {
 
   if [ "${DEBUG}" == '' ] || [ ${DEBUG} == ${NUM_TESTS} ]; then
     local OPTIND;
-    local name=''
-    local path=''
-    local expectedCode=''
-    local expectedResponseRegex=''
-    local extraCurlOpts=''
-    local curlCommand=''
-    local exitCode=''
-    local response=''
+    local name=
+    local path=
+    local expectedCode=
+    local expectedResponseRegex=
+    local extraCurlOpts=
+    local scheme='http'
+    local port=${PORT}
+    local curlCommand=
+    local exitCode=
+    local response=
     local testNum="${GRAY}${NUM_TESTS}${NC}\t"
 
-    while getopts "n:p:r:c:x:" option; do
+    while getopts "n:sp:r:c:x:" option; do
       case $option in
-      n)
-        name=$OPTARG;;
-      p)
-        path=$OPTARG;;
-      c)
-        expectedCode=$OPTARG;;
-      r)
-        expectedResponseRegex=$OPTARG;;
-      x)
-        extraCurlOpts=$OPTARG;;
-      \?) # Invalid option
-        printf "Error: Invalid option\n";
-        exit;;
+        n)
+          name=$OPTARG;;
+        s)
+          scheme='https'
+          port=${SSL_PORT};;
+        p)
+          path=$OPTARG;;
+        c)
+          expectedCode=$OPTARG;;
+        r)
+          expectedResponseRegex=$OPTARG;;
+        x)
+          extraCurlOpts=$OPTARG;;
+        \?) # Invalid option
+          printf "Error: Invalid option\n";
+          exit;;
       esac
     done
 
-    curlCommand="curl -s -v http://nginx:${PORT}${path} -H 'Cache-Control: no-cache' ${extraCurlOpts} 2>&1"
+    curlCommand="curl -skv ${scheme}://nginx:${port}${path} -H 'Cache-Control: no-cache' ${extraCurlOpts} 2>&1"
     response=$(eval "${curlCommand}")
     exitCode=$?
     
@@ -108,8 +112,18 @@ main() {
   run_test -n 'when auth disabled, should return 200' \
            -p '/' \
            -c '200'
+
+  run_test -s \
+           -n '[SSL] when auth disabled, should return 200' \
+           -p '/' \
+           -c '200'
   
   run_test -n 'when auth enabled with default algorithm and no JWT in Authorization header, returns 302' \
+           -p '/secure/auth-header/default' \
+           -c '302'
+  
+  run_test -n '[SSL] when auth enabled with default algorithm and no JWT in Authorization header, returns 302' \
+           -s \
            -p '/secure/auth-header/default' \
            -c '302'
 

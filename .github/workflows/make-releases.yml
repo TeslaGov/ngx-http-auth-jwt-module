@@ -3,12 +3,12 @@ name: CI
 on:
   push:
     branches: 
-      - 'master'
+      - master
     paths:
       - src/**
   pull_request:
     branches:
-      - 'master'
+      - master
     paths:
       - src/**
   workflow_dispatch:
@@ -18,8 +18,9 @@ jobs:
     name: "NGINX: ${{ matrix.nginx-version }}; libjwt: ${{ matrix.libjwt-version }}"
     strategy:
       matrix:
-        # Each nginx version to build against
+        # NGINX versions to build/test against
         nginx-version: ['1.20.2', '1.22.1', '1.24.0', '1.25.3']
+
         # The following versions of libjwt are compatible:
         #   * v1.0 - v1.12.0
         #   * v1.12.1 - v1.14.0
@@ -27,15 +28,16 @@ jobs:
         # At the time of writing this:
         #   * Debian and Ubuntu's repos have v1.10.2
         #   * EPEL has v1.12.1
-        # This compilles against each version prior to a breaking change and the latest release
+        # This compiles against each version prior to a breaking change and the latest release
         libjwt-version: ['1.12.0', '1.14.0', '1.15.3']
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
+    - name: Checkout Code
       uses: actions/checkout@v3
       with:
         path: 'ngx-http-auth-jwt-module'
 
+    # TODO cache the build result so we don't have to do this every time?
     - name: Download jansson
       uses: actions/checkout@v3
       with:
@@ -50,7 +52,8 @@ jobs:
         make && \
         make check && \
         sudo make install
-        
+
+    # TODO cache the build result so we don't have to do this every time?
     - name: Download libjwt
       uses: actions/checkout@v3
       with:
@@ -71,20 +74,22 @@ jobs:
         mkdir nginx
         curl -O http://nginx.org/download/nginx-${{matrix.nginx-version}}.tar.gz
         tar -xzf nginx-${{matrix.nginx-version}}.tar.gz --strip-components 1 -C nginx
-        
-    - name: Run configure
+
+    - name: Configure NGINX
       working-directory: ./nginx
       run: |
         BUILD_FLAGS=''
         MAJ=$(echo ${{matrix.nginx-version}} | cut -f1 -d.)
         MIN=$(echo ${{matrix.nginx-version}} | cut -f2 -d.)
         REV=$(echo ${{matrix.nginx-version}} | cut -f3 -d.)
-        if [ "${MAJ}" -gt 1 ] || [ "${MAJ}" -eq 1 -a "${MIN}" -ge 23 ]; then
-        BUILD_FLAGS="${BUILD_FLAGS} --with-cc-opt='-DNGX_LINKED_LIST_COOKIES=1'"
-        fi
-        ./configure --with-compat --add-dynamic-module=../ngx-http-auth-jwt-module ${BUILD_FLAGS}
         
-    - name: Run make
+        if [ "${MAJ}" -gt 1 ] || [ "${MAJ}" -eq 1 -a "${MIN}" -ge 23 ]; then
+          BUILD_FLAGS="${BUILD_FLAGS} --with-cc-opt='-DNGX_LINKED_LIST_COOKIES=1'"
+        fi
+        
+        ./configure --with-compat --add-dynamic-module=../ngx-http-auth-jwt-module ${BUILD_FLAGS}
+
+    - name: Make Modules
       working-directory: ./nginx
       run: make modules
 
