@@ -100,6 +100,10 @@ main() {
   local JWT_RS256_INVALID=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzb21lLWxvbmctdXVpZCIsImZpcnN0TmFtZSI6ImhlbGxvIiwibGFzdE5hbWUiOiJ3b3JsZCIsImVtYWlsQWRkcmVzcyI6ImhlbGxvd29ybGRAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJ0aGlzIiwidGhhdCIsInRoZW90aGVyIl0sImlzcyI6Imlzc3VlciIsInBlcnNvbklkIjoiNzViYjNjYzctYjkzMy00NGYwLTkzYzYtMTQ3YjA4MmZhZGI1IiwiZXhwIjoxOTA4ODM1MjAwLCJpYXQiOjE0ODg4MTk2MDAsInVzZXJuYW1lIjoiaGVsbG8ud29ybGQifQ._aQmIBL4CVBxU1fNMOHp0kkagFaaX2TvAEenizytwd0
   local JWT_RS384_VALID=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzM4NCJ9.eyJzdWIiOiJzb21lLWxvbmctdXVpZCIsImZpcnN0TmFtZSI6ImhlbGxvIiwibGFzdE5hbWUiOiJ3b3JsZCIsImVtYWlsQWRkcmVzcyI6ImhlbGxvd29ybGRAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJ0aGlzIiwidGhhdCIsInRoZW90aGVyIl0sImlzcyI6Imlzc3VlciIsInBlcnNvbklkIjoiNzViYjNjYzctYjkzMy00NGYwLTkzYzYtMTQ3YjA4MmZhZGI1IiwiZXhwIjoxOTA4ODM1MjAwLCJpYXQiOjE0ODg4MTk2MDAsInVzZXJuYW1lIjoiaGVsbG8ud29ybGQifQ.H35bTcZRhepWIoa8pKCbUMRuAOkVX9K5hJjc6tPmQwWmTw8lrktsvmMzJg_rgqnJLnAkciSIQw5EDj7fngS5zX2ThyRxrkPuE2Uiyw2Ect-mo9Kg1lrWgnyZCuCgq-Up9HQRAv0160mePlm8Gs4TOY6CPr38zwTcDZsy_Keq93igDQV8WuuWAGICaGd5ZyUOPjjzGShRjTU8Szz7fnpZpTtYRCYVo0pc5yfRWYm0fdn-4AseyGvd8JJ2xfnAEe4kZOkz7X1MLKtL0slKg3m2PH1lD7HwxIawXRTPWxArhJ9dcTNiDUrqtde2juGwOuMD_zTsb2Jj0_rmRb0Q6aljNw
   local JWT_RS512_VALID=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzUxMiJ9.eyJzdWIiOiJzb21lLWxvbmctdXVpZCIsImZpcnN0TmFtZSI6ImhlbGxvIiwibGFzdE5hbWUiOiJ3b3JsZCIsImVtYWlsQWRkcmVzcyI6ImhlbGxvd29ybGRAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJ0aGlzIiwidGhhdCIsInRoZW90aGVyIl0sImlzcyI6Imlzc3VlciIsInBlcnNvbklkIjoiNzViYjNjYzctYjkzMy00NGYwLTkzYzYtMTQ3YjA4MmZhZGI1IiwiZXhwIjoxOTA4ODM1MjAwLCJpYXQiOjE0ODg4MTk2MDAsInVzZXJuYW1lIjoiaGVsbG8ud29ybGQifQ.iUupyKypfXJ5aZWfItSW-mOmx9a4C4X7Yr5p5Fk8W75ZhkOq0EeNfstTxx870brhkdPovBhO2LYI44_HoH9XicQNL6JnFprE0r61eJFngbuzlhRQiWpq0xYrazJWc9zB7_GgL2ZCwtw-Ts3G23Q0632wVm6-d7MKvG7RS8aEjN-MuVGdtLglH3forpItmFxw-if40EQsBL7hncN_XNcQTO4KPHkqmlpac_oKXRrLFDIIt2tB6OOpvY4QcpERoxexp4pi2f-JoINnWX_dU5JnIs3ypVJLQPfoJvxg8fsg3zYrOvMYnfsqOCYoHtZGK0O7jyfFmcGo5v2hLT-CpoF3Zw
+  local JWT_ES256_VALID=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJzb21lLWxvbmctdXVpZCIsImZpcnN0TmFtZSI6ImhlbGxvIiwibGFzdE5hbWUiOiJ3b3JsZCIsImVtYWlsQWRkcmVzcyI6ImhlbGxvd29ybGRAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJ0aGlzIiwidGhhdCIsInRoZW90aGVyIl0sImlzcyI6Imlzc3VlciIsInBlcnNvbklkIjoiNzViYjNjYzctYjkzMy00NGYwLTkzYzYtMTQ3YjA4MmZhZGI1IiwiZXhwIjoxOTA4ODM1MjAwLCJpYXQiOjE0ODg4MTk2MDAsInVzZXJuYW1lIjoiaGVsbG8ud29ybGQifQ.WFfJXGr5whKHB7arjsTXPTJ6TAsS1LoRxu7Vj2_HrLaIQphWJM6BICf-M3cv52tFzt-XTZb6GxlDgAbHo8z9Zg
+  local JWT_ES256_INVALID=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzb21lLWxvbmctdXVpZCIsImZpcnN0TmFtZSI6ImhlbGxvIiwibGFzdE5hbWUiOiJ3b3JsZCIsImVtYWlsQWRkcmVzcyI6ImhlbGxvd29ybGRAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJ0aGlzIiwidGhhdCIsInRoZW90aGVyIl0sImlzcyI6Imlzc3VlciIsInBlcnNvbklkIjoiNzViYjNjYzctYjkzMy00NGYwLTkzYzYtMTQ3YjA4MmZhZGI1IiwiZXhwIjoxOTA4ODM1MjAwLCJpYXQiOjE0ODg4MTk2MDAsInVzZXJuYW1lIjoiaGVsbG8ud29ybGQifQ._aQmIBL4CVBxU1fNMOHp0kkagFaaX2TvAEenizytwd0
+  local JWT_ES384_VALID=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzM4NCJ9.eyJzdWIiOiJzb21lLWxvbmctdXVpZCIsImZpcnN0TmFtZSI6ImhlbGxvIiwibGFzdE5hbWUiOiJ3b3JsZCIsImVtYWlsQWRkcmVzcyI6ImhlbGxvd29ybGRAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJ0aGlzIiwidGhhdCIsInRoZW90aGVyIl0sImlzcyI6Imlzc3VlciIsInBlcnNvbklkIjoiNzViYjNjYzctYjkzMy00NGYwLTkzYzYtMTQ3YjA4MmZhZGI1IiwiZXhwIjoxOTA4ODM1MjAwLCJpYXQiOjE0ODg4MTk2MDAsInVzZXJuYW1lIjoiaGVsbG8ud29ybGQifQ._EFxXYOTAfT3gB3xUfgGR2UyXHeRTlDWqA94oZbB0DDa7YPZTEX9T4C_0ylnOFKZ6irGHZA8vxjgXDH3DZKWwBWcZ-XaQ_Q4Ws2J-AEeLqcl7_CS6q9mFo0Y7vUNEn-W
+  local JWT_ES512_VALID=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzUxMiJ9.eyJzdWIiOiJzb21lLWxvbmctdXVpZCIsImZpcnN0TmFtZSI6ImhlbGxvIiwibGFzdE5hbWUiOiJ3b3JsZCIsImVtYWlsQWRkcmVzcyI6ImhlbGxvd29ybGRAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJ0aGlzIiwidGhhdCIsInRoZW90aGVyIl0sImlzcyI6Imlzc3VlciIsInBlcnNvbklkIjoiNzViYjNjYzctYjkzMy00NGYwLTkzYzYtMTQ3YjA4MmZhZGI1IiwiZXhwIjoxOTA4ODM1MjAwLCJpYXQiOjE0ODg4MTk2MDAsInVzZXJuYW1lIjoiaGVsbG8ud29ybGQifQ.AFY4gNCtZNYkrTiijDkV4eKIt2UPMIuJBfZIk69jgI8FSGCQyUIMmIVg0fTvbaSiaryXzcjbG5TCm8a9Vu3KFJutAHGrgvZqcdklxx6Fbk3an3r_CH68n_ncwS3SUV58mDjf0OX8jRuNdudU1L5xYNQdodo-fxPIb1oHXfMJ0CmULDR9
 
   run_test -n 'when auth disabled, should return 200' \
            -p '/' \
@@ -173,6 +177,21 @@ main() {
            -c '200' \
            -x ' --cookie "jwt=${JWT_RS256_VALID}"'
 
+  run_test -n 'when auth enabled with ES256 algorithm and valid JWT cookie, returns 200' \
+           -p '/secure/cookie/es256' \
+           -c '200' \
+           -x ' --cookie "jwt=${JWT_ES256_VALID}"'
+
+  run_test -n 'when auth enabled with ES384 algorithm and valid JWT cookie, returns 200' \
+           -p '/secure/cookie/es384' \
+           -c '200' \
+           -x ' --cookie "jwt=${JWT_ES384_VALID}"'
+
+  run_test -n 'when auth enabled with ES512 algorithm and valid JWT cookie, returns 200' \
+           -p '/secure/cookie/es512' \
+           -c '200' \
+           -x ' --cookie "jwt=${JWT_ES512_VALID}"'
+
   run_test -n 'when auth enabled with RS256 algorithm via file and valid JWT in Authorization header, returns 200' \
            -p '/secure/auth-header/rs256/file' \
            -c '200' \
@@ -192,6 +211,26 @@ main() {
            -p '/secure/auth-header/rs512/file' \
            -c '200' \
            -x '--header "Authorization: Bearer ${JWT_RS256_VALID}"'
+
+  run_test -n 'when auth enabled with ES256 algorithm via file and valid JWT in Authorization header, returns 200' \
+           -p '/secure/auth-header/es256/file' \
+           -c '200' \
+           -x '--header "Authorization: Bearer ${JWT_ES256_VALID}"'
+
+  run_test -n 'when auth enabled with ES256 algorithm via file and invalid JWT in Authorization header, returns 401' \
+           -p '/secure/auth-header/es256/file' \
+           -c '302' \
+           -x '--header "Authorization: Bearer ${JWT_ES256_INVALID}"'
+
+  run_test -n 'when auth enabled with ES384 algorithm via file and valid JWT in Authorization header, returns 200' \
+           -p '/secure/auth-header/es384/file' \
+           -c '200' \
+           -x '--header "Authorization: Bearer ${JWT_ES384_VALID}"'
+
+  run_test -n 'when auth enabled with ES512 algorithm via file and valid JWT in Authorization header, returns 200' \
+           -p '/secure/auth-header/es512/file' \
+           -c '200' \
+           -x '--header "Authorization: Bearer ${JWT_ES512_VALID}"'
 
   run_test -n 'when auth enabled with HS256 algorithm and valid JWT in custom header without bearer, returns 200' \
            -p '/secure/custom-header/hs256/' \
