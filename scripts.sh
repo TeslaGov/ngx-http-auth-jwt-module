@@ -40,7 +40,7 @@ all() {
 verify_and_build_base_image() {
 	local image=${SSL_IMAGE_MAP[$SSL_VERSION]}
 	local baseImage=${image%%:*}
-	
+
 	if [ -z ${image} ]; then
 		echo "Base image not set for SSL version :${SSL_VERSION}"
 		exit 1
@@ -57,7 +57,7 @@ verify_and_build_base_image() {
 build_module() {
 	local dockerArgs=${1:-}
 	local baseImage=${SSL_IMAGE_MAP[$SSL_VERSION]}
-	
+
 	verify_and_build_base_image
 
 	printf "${MAGENTA}Building module for NGINX ${NGINX_VERSION}...${NC}\n"
@@ -67,7 +67,7 @@ build_module() {
 	  --build-arg BASE_IMAGE=${baseImage} \
 		--build-arg NGINX_VERSION=${NGINX_VERSION} \
 		${dockerArgs} .
-	
+
 	if [ "$?" -ne 0 ]; then
 		printf "${RED}✘ Build failed ${NC}\n"
 	else
@@ -88,7 +88,7 @@ start_nginx() {
 	local port=$(get_port)
 
 	printf "${MAGENTA}Starting NGINX container (${IMAGE_NAME}) on port ${port}...${NC}\n"
-	docker run --rm --name "${IMAGE_NAME}" -d -p ${port}:80 ${FULL_IMAGE_NAME} >/dev/null
+	docker run --rm --name "${IMAGE_NAME}" -d -p ${port}:80 ${FULL_IMAGE_NAME}:${NGINX_VERSION} >/dev/null
 }
 
 stop_nginx() {
@@ -111,7 +111,7 @@ cp_bin() {
 		usr/lib64/nginx/modules/ngx_http_auth_jwt_module.so \
 		usr/lib/x86_64-linux-gnu/libjansson.so.* \
 		usr/lib/x86_64-linux-gnu/libjwt.*" | tar -xf - -C ${destDir} &>/dev/null
-	
+
 	if [ $stopContainer ]; then
 		printf "${MAGENTA}Stopping NGINX container (${IMAGE_NAME})...${NC}\n"
 		stop_nginx
@@ -120,9 +120,9 @@ cp_bin() {
 
 make_release() {
 	set -e
-	
+
 	local moduleVersion=${1}
-	
+
 	NGINX_VERSION=${2}
 
 	printf "${MAGENTA}Making release for version ${moduleVersion} for NGINX ${NGINX_VERSION}...${NC}\n"
@@ -155,7 +155,7 @@ build_test() {
 	local port=$(get_port)
 	local sslPort=$(get_port $((port + 1)))
 	local runnerBaseImage=${SSL_IMAGE_MAP[$SSL_VERSION]}
-	
+
 	export TEST_CONTAINER_NAME_PREFIX
 	export FULL_IMAGE_NAME
 	export NGINX_VERSION
@@ -203,7 +203,7 @@ test_now() {
 	runnerContainerName="${TEST_CONTAINER_NAME_PREFIX}-runner"
 
 	docker start ${nginxContainerName}
-	
+
 	if [ "$(docker container inspect -f '{{.State.Running}}' ${nginxContainerName})" != "true" ]; then
 		printf "${RED}Failed to start container \"${nginxContainerName}\". See logs below:\n"
 		docker logs ${nginxContainerName}
