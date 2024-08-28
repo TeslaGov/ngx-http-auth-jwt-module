@@ -40,13 +40,13 @@ all() {
 verify_and_build_base_image() {
 	local image=${SSL_IMAGE_MAP[$SSL_VERSION]}
 	local baseImage=${image%%:*}
-	
+
 	if [ -z ${image} ]; then
 		echo "Base image not set for SSL version :${SSL_VERSION}"
 		exit 1
 	else
-		printf "${MAGENTA}Building base image for SSL ${SSL_VERSION}...${NC}\n"
-		docker image build \
+		printf "${MAGENTA}Building ${baseImage} base image for SSL ${SSL_VERSION}...${NC}\n"
+		docker buildx build \
 		  --build-arg BASE_IMAGE=debian:${baseImage} \
 			--build-arg SSL_VERSION=${SSL_VERSION} \
 			-f openssl.dockerfile \

@@ -1,9 +1,9 @@
-ARG BASE_IMAGE
+ARG BASE_IMAGE=debian:bookworm-slim
 
 FROM ${BASE_IMAGE}
-ARG SRC_DIR=/tmp/openssl-src
-ARG OUT_DIR=/usr/local/.openssl
-ARG SSL_VERSION
+ARG SSL_VERSION=3.2.1
+ENV SRC_DIR=/tmp/openssl-src
+ENV OUT_DIR=/usr/local/.openssl
 RUN <<`
     set -e
     apt-get update
@@ -13,8 +13,8 @@ RUN <<`
 `
 WORKDIR ${SRC_DIR}
 RUN <<`
-    set -e
-    curl --silent -O https://www.openssl.org/source/openssl-${SSL_VERSION}.tar.gz
+    set -ex
+    curl --silent -LO https://www.openssl.org/source/openssl-${SSL_VERSION}.tar.gz
     tar -xf openssl-${SSL_VERSION}.tar.gz --strip-components=1
 `
 RUN ./config --prefix=${OUT_DIR} --openssldir=${OUT_DIR} shared zlib
@@ -34,4 +34,4 @@ RUN <<`
     ln -sf ${OUT_DIR}/lib64/libcrypto.so.3 /lib/x86_64-linux-gnu/libcrypto.so.3
 `
 WORKDIR /
-#RUN rm -rf ${SRC_DIR}
+RUN rm -rf ${SRC_DIR}

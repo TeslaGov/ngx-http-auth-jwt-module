@@ -143,6 +143,12 @@ main() {
            -r "< Test-Authorization: Bearer ${JWT_HS256_VALID}" \
            -x "--header \"Authorization: Bearer ${JWT_HS256_VALID}\""
 
+  run_test -n 'when auth enabled with Authorization header with Bearer, lower-case "bearer" should be accepted' \
+           -p '/secure/auth-header/default/proxy-header' \
+           -c '200' \
+           -r "< Test-Authorization: bearer ${JWT_HS256_VALID}" \
+           -x "--header \"Authorization: bearer ${JWT_HS256_VALID}\""
+
   run_test -n 'when auth enabled with default algorithm and no JWT cookie, returns 302' \
            -p '/secure/cookie/default' \
            -c '302'
