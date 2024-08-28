@@ -630,7 +630,7 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
     {
       static const char *BEARER_PREFIX = "Bearer ";
 
-      if (ngx_strncmp(jwtHeaderVal->value.data, BEARER_PREFIX, strlen(BEARER_PREFIX)) == 0)
+      if (ngx_strncasecmp(jwtHeaderVal->value.data, (u_char *)BEARER_PREFIX, strlen(BEARER_PREFIX)) == 0)
       {
         ngx_str_t jwtHeaderValWithoutBearer = jwtHeaderVal->value;
 
