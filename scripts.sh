@@ -61,7 +61,7 @@ build_module() {
 	verify_and_build_base_image
 
 	printf "${MAGENTA}Building module for NGINX ${NGINX_VERSION}...${NC}\n"
-	docker image build \
+	docker buildx build \
 		-f nginx.dockerfile \
 		-t ${FULL_IMAGE_NAME}:${NGINX_VERSION} \
 	  --build-arg BASE_IMAGE=${baseImage} \
@@ -88,7 +88,7 @@ start_nginx() {
 	local port=$(get_port)
 
 	printf "${MAGENTA}Starting NGINX container (${IMAGE_NAME}) on port ${port}...${NC}\n"
-	docker run --rm --name "${IMAGE_NAME}" -d -p ${port}:80 ${FULL_IMAGE_NAME} >/dev/null
+	docker run --rm --name "${IMAGE_NAME}" -d -p ${port}:80 ${FULL_IMAGE_NAME}:${NGINX_VERSION} >/dev/null
 }
 
 stop_nginx() {
@@ -128,7 +128,7 @@ make_release() {
 	printf "${MAGENTA}Making release for version ${moduleVersion} for NGINX ${NGINX_VERSION}...${NC}\n"
 
 	rebuild_module
-	rebuild_test_runner
+	rebuild_test
 	test
 	cp_bin
 
