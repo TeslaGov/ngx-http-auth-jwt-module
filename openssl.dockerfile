@@ -1,9 +1,9 @@
 ARG BASE_IMAGE=debian:bookworm-slim
 
 FROM ${BASE_IMAGE}
-ARG SRC_DIR=/tmp/openssl-src
-ARG OUT_DIR=/usr/local/.openssl
-ARG SSL_VERSION
+ARG SSL_VERSION=3.2.1
+ENV SRC_DIR=/tmp/openssl-src
+ENV OUT_DIR=/usr/local/.openssl
 RUN <<`
     set -e
     apt-get update
