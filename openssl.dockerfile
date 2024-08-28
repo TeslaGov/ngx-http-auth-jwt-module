@@ -34,4 +34,4 @@ RUN <<`
     ln -sf ${OUT_DIR}/lib64/libcrypto.so.3 /lib/x86_64-linux-gnu/libcrypto.so.3
 `
 WORKDIR /
-#RUN rm -rf ${SRC_DIR}
+RUN rm -rf ${SRC_DIR}
