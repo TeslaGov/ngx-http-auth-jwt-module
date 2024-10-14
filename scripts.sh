@@ -120,8 +120,6 @@ cp_bin() {
 }
 
 make_release() {
-	set -e
-	
 	local moduleVersion=${1}
 	
 	NGINX_VERSION=${2}
