@@ -1,16 +1,14 @@
 ARG BASE_IMAGE
 ARG NGINX_VERSION
 
-
-FROM ${BASE_IMAGE} as ngx_http_auth_jwt_builder_base
+FROM ${BASE_IMAGE} AS ngx_http_auth_jwt_builder_base
 LABEL stage=ngx_http_auth_jwt_builder
 RUN <<`
 apt-get update
 apt-get install -y curl build-essential
 `
 
-
-FROM ngx_http_auth_jwt_builder_base as ngx_http_auth_jwt_builder_module
+FROM ngx_http_auth_jwt_builder_base AS ngx_http_auth_jwt_builder_module
 LABEL stage=ngx_http_auth_jwt_builder
 ENV PATH "${PATH}:/etc/nginx"
 ENV LD_LIBRARY_PATH=/usr/local/lib
