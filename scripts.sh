@@ -233,7 +233,8 @@ get_port() {
 if [ $# -eq 0 ]; then
 	all
 else
-	for fn in "$@"; do
-		${fn}
-	done
+	fn=$1
+	shift
+	
+	${fn} "$@"
 fi
