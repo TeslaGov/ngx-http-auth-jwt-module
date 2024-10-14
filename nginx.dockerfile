@@ -3,6 +3,7 @@ ARG NGINX_VERSION
 
 FROM ${BASE_IMAGE} AS ngx_http_auth_jwt_builder_base
 LABEL stage=ngx_http_auth_jwt_builder
+RUN chmod 1777 /tmp
 RUN <<`
 apt-get update
 apt-get install -y curl build-essential
