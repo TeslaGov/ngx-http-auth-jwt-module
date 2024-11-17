@@ -31,8 +31,8 @@ RUN <<`
     ldconfig
 
     ln -sf ${OUT_DIR}/bin/openssl /usr/bin/openssl
-    ln -sf ${OUT_DIR}/lib64/libssl.so.3 /lib/x86_64-linux-gnu/libssl.so.3
-    ln -sf ${OUT_DIR}/lib64/libcrypto.so.3 /lib/x86_64-linux-gnu/libcrypto.so.3
+    ln -sf ${OUT_DIR}/lib64/libssl.so.3 /lib/$(uname -m)-linux-gnu/libssl.so.3
+    ln -sf ${OUT_DIR}/lib64/libcrypto.so.3 /lib/$(uname -m)-linux-gnu/libcrypto.so.3
 `
 WORKDIR /
 RUN rm -rf ${SRC_DIR}
