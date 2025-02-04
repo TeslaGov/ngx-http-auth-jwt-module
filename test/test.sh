@@ -29,7 +29,7 @@ run_test () {
     local response=
     local testNum="${GRAY}${NUM_TESTS}${NC}\t"
 
-    while getopts "n:sp:r:c:x:" option; do
+    while getopts "n:asp:r:c:x:" option; do
       case $option in
         n)
           name=$OPTARG;;
@@ -113,8 +113,8 @@ main() {
            -p '/' \
            -c '200'
 
-  run_test -s \
-           -n '[SSL] when auth disabled, should return 200' \
+  run_test -n '[SSL] when auth disabled, should return 200' \
+           -s \
            -p '/' \
            -c '200'
   
@@ -349,6 +349,30 @@ main() {
            -c 301 \
            -r '< Location: http://nginx:8000/profile/some-long-uuid' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'returns 302 if auth enabled and no JWT provided' \
+           -p '/return-url' \
+           -c '302'
+
+  run_test -n 'redirects to login if auth enabled and no JWT provided' \
+           -p '/return-url' \
+           -r '< Location: https://example.com/login?return_url'
+
+  run_test -n 'adds return_url to login URL if auth enabled and no JWT provided' \
+           -p '/return-url' \
+           -r '< Location: https://example.com/login?return_url=http://nginx/return-url'
+
+  run_test -n 'return_url includes port' \
+           -p '/return-url' \
+           -r "< Location: https://example.com/login?return_url=http://nginx/return-url:${PORT}"
+
+  run_test -n 'return_url includes query' \
+           -p '/return-url?test=123' \
+           -r '< Location: https://example.com/login?return_url=http://nginx/return-url%3Ftest=123'
+
+  run_test -n 'return_url includes hash' \
+           -p '/return-url#test' \
+           -r '< Location: https://example.com/login?return_url=http://nginx/return-url#test'
 
   if [[ "${NUM_FAILED}" = '0' ]]; then
     printf "\nRan ${NUM_TESTS} tests successfully (skipped ${NUM_SKIPPED}).\n"

@@ -709,6 +709,9 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
     {
       const int loginlen = jwtcf->loginurl.len;
       const char *scheme = (r->connection->ssl) ? "https" : "http";
+      ngx_http_variable_value_t *port = ngx_http_get_variable(r, ngx_string("server_port"), 0);
+      ngx_uint_t port_num = ngx_atoi(port->data, port->len);
+      const char *port_str;
       const ngx_str_t server = r->headers_in.server;
       ngx_str_t uri_variable_name = ngx_string("request_uri");
       ngx_int_t uri_variable_hash = ngx_hash_key(uri_variable_name.data, uri_variable_name.len);
@@ -733,30 +736,52 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
         uri = r->uri;
       }
 
+      if ((!r->connection->ssl && port_num == 80) || (r->connection->ssl && port_num == 443))
+      {
+        char port_str_temp[port->len + 1];
+
+        ngx_snprintf((u_char *)port_str_temp, sizeof(port_str_temp), ":%d", port_num);
+        port_str = port_str_temp;
+      }
+
       // escape the URI
       escaped_len = 2 * ngx_escape_uri(NULL, uri.data, uri.len, NGX_ESCAPE_ARGS) + uri.len;
       uri_escaped.data = ngx_palloc(r->pool, escaped_len);
       uri_escaped.len = escaped_len;
       ngx_escape_uri(uri_escaped.data, uri.data, uri.len, NGX_ESCAPE_ARGS);
 
-      r->headers_out.location->value.len = loginlen + strlen("?return_url=") + strlen(scheme) + strlen("://") + server.len + uri_escaped.len;
+      // Add up the lengths of: scheme, "://", server, port, uri (path), "?return_url="
+      r->headers_out.location->value.len = loginlen + strlen(scheme) + 3 + server.len + strlen(port_str) + uri_escaped.len + 12;
 
       return_url = ngx_palloc(r->pool, r->headers_out.location->value.len);
       ngx_memcpy(return_url, jwtcf->loginurl.data, jwtcf->loginurl.len);
 
       return_url_idx = jwtcf->loginurl.len;
-      ngx_memcpy(return_url + return_url_idx, "?return_url=", strlen("?return_url="));
+      ngx_memcpy(return_url + return_url_idx, "?return_url=", 12);
 
-      return_url_idx += strlen("?return_url=");
+      return_url_idx += 12;
       ngx_memcpy(return_url + return_url_idx, scheme, strlen(scheme));
 
       return_url_idx += strlen(scheme);
-      ngx_memcpy(return_url + return_url_idx, "://", strlen("://"));
+      ngx_memcpy(return_url + return_url_idx, "://", 3);
 
-      return_url_idx += strlen("://");
+      return_url_idx += 3;
       ngx_memcpy(return_url + return_url_idx, server.data, server.len);
 
-      return_url_idx += server.len;
+      if (port_str != "")
+      {
+        const int port_str_len = strlen(port_str);
+
+        return_url_idx += server.len;
+        ngx_memcpy(return_url + return_url_idx, port_str, port_str_len);
+
+        return_url_idx += port_str_len;
+      }
+      else
+      {
+        return_url_idx += server.len;
+      }
+
       ngx_memcpy(return_url + return_url_idx, uri_escaped.data, uri_escaped.len);
 
       r->headers_out.location->value.data = (u_char *)return_url;
