@@ -94,7 +94,7 @@ jobs:
         tar czf ngx_http_auth_jwt_module_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz ngx_http_auth_jwt_module.so
 
     - name: Upload build artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         if-no-files-found: error
         name: ngx_http_auth_jwt_module_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz
