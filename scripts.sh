@@ -85,14 +85,14 @@ clean_module() {
 	docker rmi -f $(docker images --filter=label=stage=ngx_http_auth_jwt_builder --quiet) 2> /dev/null || true
 }
 
-start_nginx() {
+start() {
 	local port=$(get_port)
 
 	printf "${MAGENTA}Starting NGINX container (${IMAGE_NAME}) on port ${port}...${NC}\n"
 	docker run --rm --name "${IMAGE_NAME}" -d -p ${port}:80 ${FULL_IMAGE_NAME}:${NGINX_VERSION} >/dev/null
 }
 
-stop_nginx() {
+stop() {
 	docker stop "${IMAGE_NAME}" >/dev/null
 }
 
