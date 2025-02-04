@@ -72,7 +72,7 @@ run_test () {
         fi
       fi
       
-      if [ "${okay}" == '1' ] && [ "${expectedResponseRegex}" != "" ] && ! [[ "${response}" =~ "${expectedResponseRegex}" ]]; then
+      if [ "${okay}" == '1' ] && [ "${expectedResponseRegex}" != "" ] && ! [[ "${response}" =~ ${expectedResponseRegex} ]]; then
         printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex}"
         NUM_FAILED=$((${NUM_FAILED} + 1))
         okay=0
@@ -279,7 +279,7 @@ main() {
 
   run_test -n 'extracts nested claim to request variable' \
            -p '/secure/extract-claim/request/nested' \
-           -r '< Test: username=hello.world' \
+           -r '< Test: username=hello\.world' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
   run_test -n 'extracts single claim to response variable' \
@@ -319,7 +319,35 @@ main() {
 
   run_test -n 'extracts nested claim to response header' \
            -p '/secure/extract-claim/response/nested' \
-           -r '< JWT-username: hello.world' \
+           -r '< JWT-username: hello\.world' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'tests single claim with if statement' \
+           -p '/secure/extract-claim/if/sub' \
+           -c 200 \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'tests absence of single claim with if statement' \
+           -p '/secure/extract-claim/if/sub' \
+           -c 401 \
+           -x '--header "Authorization: Bearer ${JWT_HS256_MISSING_SUB}"'
+
+  run_test -n 'extracts single claim to response body' \
+           -p '/secure/extract-claim/body/sub' \
+           -c 200 \
+           -r 'sub: some-long-uuid$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'extracts multiple claims to response body' \
+           -p '/secure/extract-claim/body/multiple' \
+           -c 200 \
+           -r 'you are: hello  world$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'redirect based on claim' \
+           -p '/profile/me' \
+           -c 301 \
+           -r '< Location: http://nginx:8000/profile/some-long-uuid' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
   if [[ "${NUM_FAILED}" = '0' ]]; then

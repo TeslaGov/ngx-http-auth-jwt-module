@@ -14,19 +14,20 @@ This module depends on the [JWT C Library](https://github.com/benmcollins/libjwt
 
 This module requires several new `nginx.conf` directives, which can be specified at the `http`, `server`, or `location` levels.
 
-| Directive                            | Description                                                                                                                                          |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth_jwt_key`                       | The key to use to decode/verify the JWT, *in binhex format* -- see below.                                                                            |
-| `auth_jwt_redirect`                  | Set to "on" to redirect to `auth_jwt_loginurl` if authentication fails.                                                                              |
-| `auth_jwt_loginurl`                  | The URL to redirect to if `auth_jwt_redirect` is enabled and authentication fails.                                                                   |
-| `auth_jwt_enabled`                   | Set to "on" to enable JWT checking.                                                                                                                  |
-| `auth_jwt_algorithm`                 | The algorithm to use. One of: HS256, HS384, HS512, RS256, RS384, RS512                                                                               |
-| `auth_jwt_location`                  | Indicates where the JWT is located in the request -- see below.                                                                                      |
-| `auth_jwt_validate_sub`              | Set to "on" to validate the `sub` claim (e.g. user id) in the JWT.                                                                                   |
-| `auth_jwt_extract_request_claims`    | Set to a space-delimited list of claims to extract from the JWT and set as request headers. These will be accessible via e.g: `$http_jwt_sub`        |
-| `auth_jwt_extract_response_claims`   | Set to a space-delimited list of claims to extract from the JWT and set as response headers. These will be accessible via e.g: `$sent_http_jwt_sub`  |
-| `auth_jwt_use_keyfile`               | Set to "on" to read the key from a file rather than from the `auth_jwt_key` directive.                                                               |
-| `auth_jwt_keyfile_path`              | Set to the path from which the key should be read when `auth_jwt_use_keyfile` is enabled.                                                            |
+| Directive                            | Description                                                                                                                                                |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth_jwt_key`                       | The key to use to decode/verify the JWT, *in binhex format* -- see below.                                                                                  |
+| `auth_jwt_redirect`                  | Set to "on" to redirect to `auth_jwt_loginurl` if authentication fails.                                                                                    |
+| `auth_jwt_loginurl`                  | The URL to redirect to if `auth_jwt_redirect` is enabled and authentication fails.                                                                         |
+| `auth_jwt_enabled`                   | Set to "on" to enable JWT checking.                                                                                                                        |
+| `auth_jwt_algorithm`                 | The algorithm to use. One of: HS256, HS384, HS512, RS256, RS384, RS512                                                                                     |
+| `auth_jwt_location`                  | Indicates where the JWT is located in the request -- see below.                                                                                            |
+| `auth_jwt_validate_sub`              | Set to "on" to validate the `sub` claim (e.g. user id) in the JWT.                                                                                         |
+| `auth_jwt_extract_var_claims`        | Set to a space-delimited list of claims to extract from the JWT and make available as NGINX variables. These will be accessible via e.g: `$jwt_claim_sub`  |
+| `auth_jwt_extract_request_claims`    | Set to a space-delimited list of claims to extract from the JWT and set as request headers. These will be accessible via e.g: `$http_jwt_sub`              |
+| `auth_jwt_extract_response_claims`   | Set to a space-delimited list of claims to extract from the JWT and set as response headers. These will be accessible via e.g: `$sent_http_jwt_sub`        |
+| `auth_jwt_use_keyfile`               | Set to "on" to read the key from a file rather than from the `auth_jwt_key` directive.                                                                     |
+| `auth_jwt_keyfile_path`              | Set to the path from which the key should be read when `auth_jwt_use_keyfile` is enabled.                                                                  |
 
 
 ## Algorithms
@@ -92,19 +93,19 @@ auth_jwt_validate_sub on;
 
 You may specify claims to be extracted from the JWT and placed on the request and/or response headers. This is especially handly because the claims will then also be available as NGINX variables.
 
-If you only wish to access a claim as an NGINX variable, you should use `auth_jwt_extract_request_claims` so that the claim does not end up being sent to the client as a response header. However, if you do want the claim to be sent to the client in the response, then use `auth_jwt_extract_response_claims` instead.
+If you only wish to access a claim as an NGINX variable, you should use `auth_jwt_extract_var_claims` so that the claim does not end up being sent to the client as a response header. However, if you do want the claim to be sent to the client in the response, you may use `auth_jwt_extract_response_claims` instead.
 
 _Please note that `number`, `boolean`, `array`, and `object` claims are not supported at this time -- only `string` claims are supported._ An error will be thrown if you attempt to extract a non-string claim.
 
-### Using Request Claims
+### Using Claims
 
 For example, you could configure an NGINX location which redirects to the current user's profile. Suppose `sub=abc-123`, the configuration below would redirect to `/profile/abc-123`.
 
 ```nginx
 location /profile/me {
-    auth_jwt_extract_request_claims sub;
+    auth_jwt_extract_var_claims sub;
 
-    return 301 /profile/$http_jwt_sub;
+    return 301 /profile/$jwt_claim_sub;
 }
 ```
 
