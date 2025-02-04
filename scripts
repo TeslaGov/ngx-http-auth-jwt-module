@@ -110,8 +110,8 @@ cp_bin() {
 	mkdir -p ${destDir}
 	docker exec "${IMAGE_NAME}" sh -c "cd /; tar -chf - \
 		usr/lib64/nginx/modules/ngx_http_auth_jwt_module.so \
-		usr/lib/x86_64-linux-gnu/libjansson.so.* \
-		usr/lib/x86_64-linux-gnu/libjwt.*" | tar -xf - -C ${destDir} &>/dev/null
+		usr/lib/$(uname -m)-linux-gnu/libjansson.so.* \
+		usr/lib/$(uname -m)-linux-gnu/libjwt.*" | tar -xf - -C ${destDir} &>/dev/null
 	
 	if [ $stopContainer ]; then
 		printf "${MAGENTA}Stopping NGINX container (${IMAGE_NAME})...${NC}\n"
