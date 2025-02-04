@@ -1,11 +1,6 @@
-name: CI
+name: Make Releases
 
 on:
-  push:
-    branches: 
-      - master
-    paths:
-      - src/**
   workflow_dispatch:
 
 jobs:
@@ -27,14 +22,26 @@ jobs:
         libjwt-version: ['1.12.0', '1.14.0', '1.15.3']
     runs-on: ubuntu-latest
     steps:
+
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
-        path: 'ngx-http-auth-jwt-module'
+        fetch-depth: 0
+        path: ngx-http-auth-jwt-module
+
+    - name: Get Metadata
+      id: meta
+      run: |
+        set -eux
+        cd ngx-http-auth-jwt-module
+
+        tag=$(git describe --tags --abbrev=0)
+
+        echo "filename=ngx-http-auth-jwt-module-${tag}_libjwt-${{matrix.libjwt-version}}_nginx-${{matrix.nginx-version}}.tgz" >> $GITHUB_OUTPUT
 
     # TODO cache the build result so we don't have to do this every time?
     - name: Download jansson
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: 'akheron/jansson'
         ref: 'v2.14'
@@ -50,7 +57,7 @@ jobs:
 
     # TODO cache the build result so we don't have to do this every time?
     - name: Download libjwt
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: 'benmcollins/libjwt'
         ref: 'v${{matrix.libjwt-version}}'
@@ -82,44 +89,43 @@ jobs:
           BUILD_FLAGS="${BUILD_FLAGS} --with-cc-opt='-DNGX_LINKED_LIST_COOKIES=1'"
         fi
         
-        ./configure --with-compat --add-dynamic-module=../ngx-http-auth-jwt-module ${BUILD_FLAGS}
+        ./configure --with-compat --without-http_rewrite_module --add-dynamic-module=../ngx-http-auth-jwt-module ${BUILD_FLAGS}
 
     - name: Make Modules
       working-directory: ./nginx
       run: make modules
 
-    - name: Create release archive
+    - name: Create Release Archive
       run: |
         cp ./nginx/objs/ngx_http_auth_jwt_module.so ./
-        tar czf ngx_http_auth_jwt_module_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz ngx_http_auth_jwt_module.so
+        tar czf ${{steps.meta.outputs.filename}} ngx_http_auth_jwt_module.so
 
-    - name: Upload build artifact
+    - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
       with:
         if-no-files-found: error
-        name: ngx_http_auth_jwt_module_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz
-        path: ngx_http_auth_jwt_module_libjwt_${{matrix.libjwt-version}}_nginx_${{matrix.nginx-version}}.tgz
+        name: ${{steps.meta.outputs.filename}}
+        path: ${{steps.meta.outputs.filename}}
 
   update_releases_page:
-    name: Upload builds to Releases
-    if: github.event_name != 'pull_request'
-    needs:
-      - build
+    name: Upload Release
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Set up variables
+
+      - name: Set-up Variables
         id: vars
         run: |
           echo "date_now=$(date --rfc-3339=seconds)" >> "${GITHUB_OUTPUT}"
           
-      - name: Download build artifacts from previous jobs
-        uses: actions/download-artifact@v3
+      - name: Download Build Artifacts from Previous Jobs
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Upload builds to Releases
+      - name: Upload Builds to Release
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
@@ -128,7 +134,7 @@ jobs:
           body: |
             > [!WARNING]
             > This is an automatically generated pre-release version of the module, which includes the latest master branch changes.
-            > Please report any bugs you find to the issue tracker.
+            > Please report any bugs you find.
 
             - Build Date: `${{ steps.vars.outputs.date_now }}`
             - Commit: ${{ github.sha }}
