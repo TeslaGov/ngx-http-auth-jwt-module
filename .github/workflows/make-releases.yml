@@ -105,10 +105,9 @@ jobs:
       with:
         if-no-files-found: error
         name: ${{steps.meta.outputs.filename}}
-        path: ${{steps.meta.outputs.filename}}
 
-  update_releases_page:
-    name: Upload Release
+  release:
+    name: Create/Update Release
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -120,7 +119,7 @@ jobs:
         run: |
           echo "date_now=$(date --rfc-3339=seconds)" >> "${GITHUB_OUTPUT}"
           
-      - name: Download Build Artifacts from Previous Jobs
+      - name: Download Build Artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -128,9 +127,7 @@ jobs:
       - name: Upload Builds to Release
         uses: ncipollo/release-action@v1
         with:
-          allowUpdates: true
-          artifactErrorsFailBuild: true
-          artifacts: artifacts/*/*
+          name: 'Development Build: ${{ github.ref_name }}@${{ github.sha }}'
           body: |
             > [!WARNING]
             > This is an automatically generated pre-release version of the module, which includes the latest master branch changes.
@@ -138,7 +135,9 @@ jobs:
 
             - Build Date: `${{ steps.vars.outputs.date_now }}`
             - Commit: ${{ github.sha }}
-          name: 'Development build: ${{ github.ref_name }}@${{ github.sha }}'
           prerelease: true
+          allowUpdates: true
           removeArtifacts: true
+          artifactErrorsFailBuild: true
+          artifacts: artifacts/*
           tag: dev-build
