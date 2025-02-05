@@ -290,13 +290,13 @@ static char *merge_extract_var_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *
   {
     // add this claim's name to the config struct
     ngx_str_t *element = ngx_array_push(claims);
-    
+
     *element = values[i];
 
     // add an http variable for this claim
     size_t var_name_len = 10 + element->len;
     u_char *buf = ngx_palloc(cf->pool, sizeof(u_char) * var_name_len);
-    
+
     if (buf == NULL)
     {
       return NGX_CONF_ERROR;
@@ -305,7 +305,7 @@ static char *merge_extract_var_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *
     {
       ngx_sprintf(buf, "jwt_claim_%V", element);
       ngx_str_t *var_name = ngx_palloc(cf->pool, sizeof(ngx_str_t));
-      
+
       if (var_name == NULL)
       {
         return NGX_CONF_ERROR;
@@ -314,31 +314,31 @@ static char *merge_extract_var_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *
       {
         var_name->data = buf;
         var_name->len = var_name_len;
-        
+
         // NGX_HTTP_VAR_CHANGEABLE simplifies the required logic by assuming a JWT claim will always be the same for a given request
         ngx_http_variable_t *http_var = ngx_http_add_variable(cf, var_name, NGX_HTTP_VAR_CHANGEABLE);
-        
+
         if (http_var == NULL)
         {
           ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to add variable %V", var_name);
-          
+
           return NGX_CONF_ERROR;
         }
         else
         {
           http_var->get_handler = get_jwt_var_claim;
-      
+
           // store the index of this new claim in the claims array as the "data" that will be passed to the getter
           ngx_uint_t *claim_idx = ngx_palloc(cf->pool, sizeof(ngx_uint_t));
-          
+
           if (claim_idx == NULL)
           {
-              return NGX_CONF_ERROR;
+            return NGX_CONF_ERROR;
           }
           else
           {
             *claim_idx = claims->nelts - 1;
-            http_var->data = (uintptr_t) claim_idx;
+            http_var->data = (uintptr_t)claim_idx;
           }
         }
       }
@@ -350,26 +350,26 @@ static char *merge_extract_var_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *
 
 static ngx_int_t get_jwt_var_claim(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data)
 {
-  ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "getting jwt value for var index %l", *((ngx_uint_t*) data));
+  ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "getting jwt value for var index %l", *((ngx_uint_t *)data));
   auth_jwt_ctx_t *ctx = get_request_jwt_ctx(r);
-  
+
   if (ctx == NULL)
   {
     ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "no module context found while getting jwt value");
-    
+
     return NGX_ERROR;
   }
   else
   {
-    ngx_uint_t *claim_idx = (ngx_uint_t*) data;
-    ngx_str_t claim_value = ((ngx_str_t*) ctx->claim_values->elts)[*claim_idx];
-    
+    ngx_uint_t *claim_idx = (ngx_uint_t *)data;
+    ngx_str_t claim_value = ((ngx_str_t *)ctx->claim_values->elts)[*claim_idx];
+
     v->valid = 1;
     v->no_cacheable = 0;
     v->not_found = 0;
     v->len = claim_value.len;
     v->data = claim_value.data;
-  
+
     return NGX_OK;
   }
 }
@@ -420,7 +420,7 @@ static char *merge_extract_response_claims(ngx_conf_t *cf, ngx_command_t *cmd, v
 static auth_jwt_ctx_t *get_or_init_jwt_module_ctx(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
 {
   auth_jwt_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_auth_jwt_module);
-  
+
   if (ctx != NULL)
   {
     return ctx;
@@ -434,7 +434,8 @@ static auth_jwt_ctx_t *get_or_init_jwt_module_ctx(ngx_http_request_t *r, auth_jw
       ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "error allocating jwt module context");
       return ctx;
     }
-    else {
+    else
+    {
       if (jwtcf->extract_var_claims != NULL)
       {
         ctx->claim_values = ngx_array_create(r->pool, jwtcf->extract_var_claims->nelts, sizeof(ngx_str_t));
@@ -460,7 +461,7 @@ static auth_jwt_ctx_t *get_request_jwt_ctx(ngx_http_request_t *r)
 {
   auth_jwt_conf_t *jwtcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
 
-  if(!jwtcf->enabled)
+  if (!jwtcf->enabled)
   {
     return NULL;
   }
@@ -587,7 +588,8 @@ static int validate_alg(auth_jwt_conf_t *jwtcf, jwt_t *jwt)
 {
   const jwt_alg_t alg = jwt_get_alg(jwt);
 
-  if (alg != JWT_ALG_HS256 && alg != JWT_ALG_HS384 && alg != JWT_ALG_HS512 && alg != JWT_ALG_RS256 && alg != JWT_ALG_RS384 && alg != JWT_ALG_RS512 && alg != JWT_ALG_ES256 && alg != JWT_ALG_ES384 && alg != JWT_ALG_ES512)  {
+  if (alg != JWT_ALG_HS256 && alg != JWT_ALG_HS384 && alg != JWT_ALG_HS512 && alg != JWT_ALG_RS256 && alg != JWT_ALG_RS384 && alg != JWT_ALG_RS512 && alg != JWT_ALG_ES256 && alg != JWT_ALG_ES384 && alg != JWT_ALG_ES512)
+  {
     return 1;
   }
 
@@ -625,7 +627,7 @@ static int validate_sub(auth_jwt_conf_t *jwtcf, jwt_t *jwt)
 static ngx_int_t extract_var_claims(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf, jwt_t *jwt, auth_jwt_ctx_t *ctx)
 {
   ngx_array_t *claims = jwtcf->extract_var_claims;
-  
+
   if (claims == NULL || claims->nelts == 0)
   {
     return NGX_OK;
@@ -633,22 +635,22 @@ static ngx_int_t extract_var_claims(ngx_http_request_t *r, auth_jwt_conf_t *jwtc
   else
   {
     const ngx_str_t *claimsPtr = claims->elts;
-  
+
     for (uint i = 0; i < claims->nelts; ++i)
     {
       const ngx_str_t claim = claimsPtr[i];
       const char *claimValue = jwt_get_grant(jwt, (char *)claim.data);
       ngx_str_t value = ngx_string("");
-      
+
       if (claimValue != NULL && strlen(claimValue) > 0)
       {
         value = char_ptr_to_ngx_str_t(r->pool, claimValue);
       }
-      
-      ((ngx_str_t*) ctx->claim_values->elts)[i] = value;
+
+      ((ngx_str_t *)ctx->claim_values->elts)[i] = value;
       ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "set var %V to JWT claim value %s", &claim, value.data);
     }
-  
+
     return NGX_OK;
   }
 }
@@ -708,14 +710,16 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
     if (r->method == NGX_HTTP_GET)
     {
       const int loginlen = jwtcf->loginurl.len;
-      const char *scheme = (r->connection->ssl) ? "https" : "http";
-      ngx_http_variable_value_t *port = ngx_http_get_variable(r, ngx_string("server_port"), 0);
-      ngx_uint_t port_num = ngx_atoi(port->data, port->len);
-      const char *port_str;
+      const char *scheme = r->connection->ssl ? "https" : "http";
+      ngx_str_t port_variable_name = ngx_string("server_port");
+      ngx_int_t port_variable_hash = ngx_hash_key(port_variable_name.data, port_variable_name.len);
+      ngx_http_variable_value_t *port_var = ngx_http_get_variable(r, &port_variable_name, port_variable_hash);
+      char *port_str = "";
+      uint port_str_len = 0;
       const ngx_str_t server = r->headers_in.server;
       ngx_str_t uri_variable_name = ngx_string("request_uri");
       ngx_int_t uri_variable_hash = ngx_hash_key(uri_variable_name.data, uri_variable_name.len);
-      ngx_http_variable_value_t *request_uri_var = ngx_http_get_variable(r, &uri_variable_name, uri_variable_hash);
+      ngx_http_variable_value_t *uri_var = ngx_http_get_variable(r, &uri_variable_name, uri_variable_hash);
       ngx_str_t uri;
       ngx_str_t uri_escaped;
       uintptr_t escaped_len;
@@ -723,12 +727,12 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
       int return_url_idx;
 
       // get the URI
-      if (request_uri_var && !request_uri_var->not_found && request_uri_var->valid)
+      if (uri_var && !uri_var->not_found && uri_var->valid)
       {
         // ideally we would like the URI with the querystring parameters
-        uri.data = ngx_palloc(r->pool, request_uri_var->len);
-        uri.len = request_uri_var->len;
-        ngx_memcpy(uri.data, request_uri_var->data, request_uri_var->len);
+        uri.data = ngx_palloc(r->pool, uri_var->len);
+        uri.len = uri_var->len;
+        ngx_memcpy(uri.data, uri_var->data, uri_var->len);
       }
       else
       {
@@ -736,13 +740,22 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
         uri = r->uri;
       }
 
-      if ((!r->connection->ssl && port_num == 80) || (r->connection->ssl && port_num == 443))
+      if (port_var && !port_var->not_found && port_var->valid)
       {
-        char port_str_temp[port->len + 1];
+        const ngx_uint_t port_num = ngx_atoi(port_var->data, port_var->len);
+        const bool is_default_port_80 = !r->connection->ssl && port_num == 80;
+        const bool is_default_port_443 = r->connection->ssl && port_num == 443;
+        const bool is_non_default_port = !is_default_port_80 && !is_default_port_443;
 
-        ngx_snprintf((u_char *)port_str_temp, sizeof(port_str_temp), ":%d", port_num);
-        port_str = port_str_temp;
+        if (is_non_default_port)
+        {
+          port_str = ngx_palloc(r->pool, NGX_INT_T_LEN + 2);
+
+          ngx_snprintf((u_char *)port_str, sizeof(port_str), ":%d", port_num);
+          port_str_len = strlen(port_str);
+        }
       }
+
 
       // escape the URI
       escaped_len = 2 * ngx_escape_uri(NULL, uri.data, uri.len, NGX_ESCAPE_ARGS) + uri.len;
@@ -750,39 +763,36 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
       uri_escaped.len = escaped_len;
       ngx_escape_uri(uri_escaped.data, uri.data, uri.len, NGX_ESCAPE_ARGS);
 
-      // Add up the lengths of: scheme, "://", server, port, uri (path), "?return_url="
-      r->headers_out.location->value.len = loginlen + strlen(scheme) + 3 + server.len + strlen(port_str) + uri_escaped.len + 12;
+      // Add up the lengths of: login URL, "?return_url=", scheme, "://", server, port, uri (path)
+      r->headers_out.location->value.len = loginlen + 12 + strlen(scheme) + 3 + server.len + port_str_len + uri_escaped.len;
 
       return_url = ngx_palloc(r->pool, r->headers_out.location->value.len);
+
       ngx_memcpy(return_url, jwtcf->loginurl.data, jwtcf->loginurl.len);
-
       return_url_idx = jwtcf->loginurl.len;
+
       ngx_memcpy(return_url + return_url_idx, "?return_url=", 12);
-
       return_url_idx += 12;
+
       ngx_memcpy(return_url + return_url_idx, scheme, strlen(scheme));
-
       return_url_idx += strlen(scheme);
+
       ngx_memcpy(return_url + return_url_idx, "://", 3);
-
       return_url_idx += 3;
+
       ngx_memcpy(return_url + return_url_idx, server.data, server.len);
+      return_url_idx += server.len;
 
-      if (port_str != "")
+      if (port_str_len > 0)
       {
-        const int port_str_len = strlen(port_str);
-
-        return_url_idx += server.len;
         ngx_memcpy(return_url + return_url_idx, port_str, port_str_len);
-
         return_url_idx += port_str_len;
       }
-      else
-      {
-        return_url_idx += server.len;
-      }
 
-      ngx_memcpy(return_url + return_url_idx, uri_escaped.data, uri_escaped.len);
+      if (uri_escaped.len > 0)
+      {
+        ngx_memcpy(return_url + return_url_idx, uri_escaped.data, uri_escaped.len);
+      }
 
       r->headers_out.location->value.data = (u_char *)return_url;
     }
