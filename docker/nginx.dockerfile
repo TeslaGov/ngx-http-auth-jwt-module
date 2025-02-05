@@ -1,34 +1,28 @@
-ARG BASE_IMAGE
-ARG NGINX_VERSION
-
-FROM ${BASE_IMAGE} AS ngx_http_auth_jwt_builder_base
-LABEL stage=ngx_http_auth_jwt_builder
-RUN chmod 1777 /tmp
-RUN <<`
-apt-get update
-apt-get install -y curl build-essential
-`
-
 FROM ngx_http_auth_jwt_builder_base AS ngx_http_auth_jwt_builder_module
 LABEL stage=ngx_http_auth_jwt_builder
-ENV PATH "${PATH}:/etc/nginx"
-ENV LD_LIBRARY_PATH=/usr/local/lib
 ARG NGINX_VERSION
+
+ENV PATH="${PATH}:/etc/nginx"
+ENV LD_LIBRARY_PATH=/usr/local/lib
+
 RUN <<`
 	set -e
 	apt-get install -y libjwt-dev libjwt0 libjansson-dev libjansson4 libpcre2-dev zlib1g-dev libpcre3-dev
 	mkdir -p /root/build/ngx-http-auth-jwt-module
 `
+
 WORKDIR /root/build/ngx-http-auth-jwt-module
 ADD config ./
 ADD src/*.h src/*.c ./src/
+
 WORKDIR /root/build
 RUN <<`
 	set -e
 	mkdir nginx
-	curl -O http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
+	curl -O http://nginx.org/download/nginx-${NGINX_VERSION:?required}.tar.gz
 	tar -xzf nginx-${NGINX_VERSION}.tar.gz --strip-components 1 -C nginx
 `
+
 WORKDIR /root/build/nginx
 RUN <<`
 	set -e
@@ -89,18 +83,25 @@ RUN <<`
 		${BUILD_FLAGS}
 		# --with-openssl=/usr/local \
 `
+
 RUN make modules
 RUN make install
+
 WORKDIR /usr/lib64/nginx/modules
-RUN	cp /root/build/nginx/objs/ngx_http_auth_jwt_module.so .
-RUN rm -rf /root/build
-RUN adduser --system --no-create-home --shell /bin/false --group --disabled-login nginx
-RUN mkdir -p /var/cache/nginx /var/log/nginx
+RUN	<<`
+	set -e
+	cp /root/build/nginx/objs/ngx_http_auth_jwt_module.so .
+	rm -rf /root/build
+	adduser --system --no-create-home --shell /bin/false --group --disabled-login nginx
+	mkdir -p /var/cache/nginx /var/log/nginx
+`
+
 WORKDIR /etc/nginx
 
+
 FROM ngx_http_auth_jwt_builder_module AS ngx_http_auth_jwt_nginx
-LABEL maintainer="TeslaGov" email="developers@teslagov.com"
 ARG NGINX_VERSION
+
 RUN <<`
 	set -e
 
@@ -108,6 +109,7 @@ RUN <<`
 	apt-get install -y libjansson4 libjwt0
 	apt-get clean
 `
+
 COPY <<` /etc/nginx/nginx.conf
 user nginx;
 pid /var/run/nginx.pid;
@@ -124,12 +126,13 @@ http {
 	include mime.types;
 	default_type application/octet-stream;
 
-	log_format main '$$remote_addr - $$remote_user [$$time_local] "$$request" '
-	                '$$status $$body_bytes_sent "$$http_referer" '
-	                '"$$http_user_agent" "$$http_x_forwarded_for"';
+	log_format main '\$remote_addr - \$remote_user [\$time_local] "\$request" '
+	                '\$status \$body_bytes_sent "\$http_referer" '
+	                '"\$http_user_agent" "\$http_x_forwarded_for"';
 
 	access_log /var/log/nginx/access.log main;
 	include conf.d/*.conf;
 }
 `
+
 ENTRYPOINT ["nginx", "-g", "daemon off;"]

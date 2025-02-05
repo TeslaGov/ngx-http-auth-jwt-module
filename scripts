@@ -10,13 +10,15 @@ NC='\033[0m'
 SSL_VERSION_1_1_1w='1.1.1w'
 SSL_VERSION_3_0_11='3.0.11'
 SSL_VERSION_3_2_1='3.2.1'
+SSL_VERSION_3_3_2='3.3.2'
 SSL_VERSIONS=(${SSL_VERSION_3_2_1})
-SSL_VERSION=${SSL_VERSION:-$SSL_VERSION_3_0_11}
+SSL_VERSION=${SSL_VERSION:-$SSL_VERSION_3_2_1}
 
 declare -A SSL_IMAGE_MAP
-SSL_IMAGE_MAP[$SSL_VERSION_1_1_1w]="bullseye-slim:openssl-${SSL_VERSION_1_1_1w}"
-SSL_IMAGE_MAP[$SSL_VERSION_3_0_11]="bookworm-slim:openssl-${SSL_VERSION_3_0_11}"
-SSL_IMAGE_MAP[$SSL_VERSION_3_2_1]="bookworm-slim:openssl-${SSL_VERSION_3_2_1}"
+SSL_IMAGE_MAP[$SSL_VERSION_1_1_1w]="debian:bullseye-slim openssl-${SSL_VERSION_1_1_1w}"
+SSL_IMAGE_MAP[$SSL_VERSION_3_0_11]="debian:bookworm-slim openssl-${SSL_VERSION_3_0_11}"
+SSL_IMAGE_MAP[$SSL_VERSION_3_2_1]="debian:bookworm-slim openssl-${SSL_VERSION_3_2_1}"
+SSL_IMAGE_MAP[$SSL_VERSION_3_3_2]="alpine:3 openssl-${SSL_VERSION_3_3_2}"
 
 # supported NGINX versions -- for binary distribution
 NGINX_VERSION_LEGACY_1='1.20.2'
@@ -39,35 +41,45 @@ all() {
 }
 
 verify_and_build_base_image() {
-	local image=${SSL_IMAGE_MAP[$SSL_VERSION]}
-	local baseImage=${image%%:*}
+	local info=${SSL_IMAGE_MAP[$SSL_VERSION]}
 
-	if [ -z ${image} ]; then
+	if [ -z ${info} ]; then
 		echo "Base image not set for SSL version :${SSL_VERSION}"
 		exit 1
 	else
-		printf "${MAGENTA}Building ${baseImage} base image for SSL ${SSL_VERSION}...${NC}\n"
+		local distro=$(get_distro)
+		local distroTag=$(get_distro_tag)
+		local sslTag=$(get_ssl_tag)
+
+		printf "${MAGENTA}Building ${distro}:${distroTag} base image for SSL ${SSL_VERSION}...${NC}\n"
 		docker buildx build \
-		  --build-arg BASE_IMAGE=debian:${baseImage} \
+			-f docker/openssl.dockerfile \
+		  --build-arg BASE_IMAGE=${distro}:${distroTag} \
 			--build-arg SSL_VERSION=${SSL_VERSION} \
-			-f openssl.dockerfile \
-			-t ${image} .
+			-t ${distro}-${distroTag}:${sslTag} \
+			docker
 	fi
 }
 
 build_module() {
-	local dockerArgs=${1:-}
-	local baseImage=${SSL_IMAGE_MAP[$SSL_VERSION]}
-	
 	verify_and_build_base_image
 
-	printf "${MAGENTA}Building module for NGINX ${NGINX_VERSION}...${NC}\n"
+	local dockerArgs=${1:-}
+	local distro=$(get_distro)
+	local distroTag=$(get_distro_tag)
+	local sslTag=$(get_ssl_tag)
+
+	printf "${MAGENTA}Copying \`src\` to context dir...${NC}\n"
+	cp -r src docker
+	trap "rm -rf docker/src" 0
+
+	printf "${MAGENTA}Building module with ${distro}:${distroTag} for NGINX ${NGINX_VERSION}...${NC}\n"
 	docker buildx build \
-		-f nginx.dockerfile \
-		-t ${FULL_IMAGE_NAME}:${NGINX_VERSION} \
-	  --build-arg BASE_IMAGE=${baseImage} \
+		-f docker/nginx-${distro}.dockerfile \
+		--build-arg BASE_IMAGE=${distro}-${distroTag}:${sslTag} \
 		--build-arg NGINX_VERSION=${NGINX_VERSION} \
-		${dockerArgs} .
+		${dockerArgs} \
+		docker
 	
 	if [ "$?" -ne 0 ]; then
 		printf "${RED}✘ Build failed ${NC}\n"
@@ -83,6 +95,18 @@ rebuild_module() {
 
 clean_module() {
 	docker rmi -f $(docker images --filter=label=stage=ngx_http_auth_jwt_builder --quiet) 2> /dev/null || true
+}
+
+get_distro() {
+	echo "${SSL_IMAGE_MAP[${SSL_VERSION}]}" | cut -d ':' -f1
+}
+
+get_distro_tag() {
+	echo "${SSL_IMAGE_MAP[${SSL_VERSION}]}" | cut -d ' ' -f1 | cut -d ':' -f2
+}
+
+get_ssl_tag() {
+	echo "${SSL_IMAGE_MAP[${SSL_VERSION}]}" | cut -d ' ' -f2
 }
 
 start() {
