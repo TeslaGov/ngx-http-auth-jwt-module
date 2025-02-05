@@ -4,8 +4,29 @@ on:
   workflow_dispatch:
 
 jobs:
+  meta:
+    name: Get Metadata
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{steps.meta.outputs.tag}}
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Metadata
+        id: meta
+        run: |
+          set -eu
+          tag=$(git describe --tags --abbrev=0)
+
+          echo "tag=${tag}" >> $GITHUB_OUTPUT
+
   build:
     name: "NGINX: ${{ matrix.nginx-version }}; libjwt: ${{ matrix.libjwt-version }}"
+    needs: meta
     strategy:
       matrix:
         # NGINX versions to build/test against
@@ -26,18 +47,17 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
         path: ngx-http-auth-jwt-module
 
     - name: Get Metadata
       id: meta
       run: |
-        set -eux
-        cd ngx-http-auth-jwt-module
+        set -eu
+        artifact="ngx-http-auth-jwt-module-${{needs.meta.outputs.tag}}_libjwt-${{matrix.libjwt-version}}_nginx-${{matrix.nginx-version}}"
+        
+        echo "artifact=${artifact}" >> $GITHUB_OUTPUT
+        echo "filename=${artifact}.tgz" >> $GITHUB_OUTPUT
 
-        tag=$(git describe --tags --abbrev=0)
-
-        echo "filename=ngx-http-auth-jwt-module-${tag}_libjwt-${{matrix.libjwt-version}}_nginx-${{matrix.nginx-version}}.tgz" >> $GITHUB_OUTPUT
 
     # TODO cache the build result so we don't have to do this every time?
     - name: Download jansson
@@ -104,11 +124,14 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         if-no-files-found: error
-        name: ${{steps.meta.outputs.filename}}
+        name: ${{steps.meta.outputs.artifact}}
+        path: ${{steps.meta.outputs.filename}}
 
   release:
     name: Create/Update Release
-    needs: build
+    needs:
+      - meta
+      - build
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -119,25 +142,38 @@ jobs:
         run: |
           echo "date_now=$(date --rfc-3339=seconds)" >> "${GITHUB_OUTPUT}"
           
-      - name: Download Build Artifacts
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Upload Builds to Release
+      - name: Flatten Artifacts
+        run: |
+          set -eu
+          
+          cd artifacts
+
+          for f in $(find . -type f); do
+            echo "Staging: ${f}"
+            mv "${f}" .
+          done
+
+          find . -type d -mindepth 1 -exec rm -rf "{}" +
+
+      - name: Create/Update Release
         uses: ncipollo/release-action@v1
         with:
-          name: 'Development Build: ${{ github.ref_name }}@${{ github.sha }}'
+          tag: ${{needs.meta.outputs.tag}}
+          name: "Pre-release: ${{needs.meta.outputs.tag}}"
           body: |
             > [!WARNING]
             > This is an automatically generated pre-release version of the module, which includes the latest master branch changes.
             > Please report any bugs you find.
 
             - Build Date: `${{ steps.vars.outputs.date_now }}`
-            - Commit: ${{ github.sha }}
+            - Commit: `${{ github.sha }}`
           prerelease: true
           allowUpdates: true
           removeArtifacts: true
           artifactErrorsFailBuild: true
           artifacts: artifacts/*
-          tag: dev-build
