@@ -192,41 +192,43 @@ Once you save your changes to `.vscode/c_cpp_properties.json`, you should see th
 
 ### Building and Testing
 
-The `./scripts.sh` file contains multiple commands to make things easy:
+The `./scripts` file contains multiple commands to make things easy:
 
 | Command               | Description                                                       |
 | --------------------- | ----------------------------------------------------------------- |
 | `build_module`        | Builds the NGINX image.                                           |
 | `rebuild_module`      | Re-builds the NGINX image.                                        |
-| `start_nginx`         | Starts the NGINX container.                                       |
-| `stop_nginx`          | Stops the NGINX container.                                        |
+| `start`               | Starts the NGINX container.                                       |
+| `stop`                | Stops the NGINX container.                                        |
 | `cp_bin`              | Copies the compiled binaries out of the NGINX container.          |
-| `build_test_runner`   | Builds the images used by the test stack (uses Docker compose).   |
-| `rebuild_test_runner` | Re-builds the images used by the test stack.                      |
-| `test`                | Runs `test.sh` against the NGINX container (uses Docker compose). |
+| `build_test`          | Builds the images used by the test stack.                         |
+| `rebuild_test`        | Re-builds the images used by the test stack.                      |
+| `test`                | Runs `test.sh` against the NGINX container.                       |
 | `test_now`            | Runs `test.sh` without rebuilding.                                |
 
 You can run multiple commands in sequence by separating them with a space, e.g.:
 
 ```shell
-./scripts.sh build_module test
+./scripts build_module
+./scripts test
 ```
 
-To build the Docker images, module, start NGINX, and run the tests against, you can simply do:
+To build the Docker images, module, start NGINX, and run the tests against it for all versions, you can simply do:
 
 ```shell
-./scripts.sh all
+./scripts all
 ```
 
-When you make a change to the module run `./scripts.sh build_module test` to build a fresh module and run the tests. Note that `rebuild_module` is not often needed as `build_module` hashes the module's source files which will cause a cache miss while building the container, causing the module to be rebuilt.
+When you make a change to the module, running `./scripts test` should build a fresh module and run the tests. Note that `rebuild_module` is not often needed as Docker will automatically rebuild the image if the source files have
+changed.
 
-When you make a change to the test NGINX config or `test.sh`, run `./scripts.sh test` to run the tests. Similar to above, the test sources are hashed and the containers will be rebuilt as needed.
+When you make a change to the test NGINX config or `test.sh`, run `./scripts test` to run the tests.
 
-The image produced with `./scripts.sh build_module` only differs from the official NGINX image in two ways:
+The image produced with `./scripts build_module` only differs from the official NGINX image in two ways:
  - the JWT module itself, and
  - the `nginx.conf` file is overwritten with our own.
 
-The tests use a customized NGINX image, distinct from the main image, as well as a test runner image. By running `./scripts.sh test`, the two test containers will be stood up via Docker compose, then they'll be started, and the tests will run. At the end of the test run, both containers will be automatically stopped and destroyed. See below to learn how to trace test failures across runs.
+The tests use a customized NGINX image, distinct from the main image, as well as a test runner image. By running `./scripts test`, the two test containers will be stood up via Docker Compose, then they'll be started, and the tests will run. At the end of the test run, both containers will be automatically stopped and destroyed. See below to learn how to trace test failures across runs.
 
 #### Tracing Test Failures
 
@@ -236,20 +238,23 @@ If you'd like to persist logs across test runs, you can configure the log driver
 
 ```shell
 # need to rebuild the test runner with the proper log driver
-LOG_DRIVER=journald ./scripts.sh rebuild_test_runner
+export LOG_DRIVER=journald
+
+# rebuild the test images
+./scripts rebuild_test
 
 # run the tests
-./scripts.sh test
+./scripts test
 
-# check the logs
-journalctl -eu docker CONTAINER_NAME=jwt-nginx-test
+# check the logs -- adjust the container name as needed
+journalctl -eu docker CONTAINER_NAME=nginx-auth-jwt-test-nginx
 ```
 
 Now you'll be able to see logs from previous test runs. The best way to make use of this  is to open two terminals, one where you run the tests, and one where you follow the logs:
 
 ```shell
 # terminal 1
-./scripts.sh test
+./scripts test
 
 # terminal 2
 journalctl -fu docker CONTAINER_NAME=jwt-nginx-test
