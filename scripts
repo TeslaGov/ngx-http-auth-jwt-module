@@ -31,6 +31,7 @@ IMAGE_NAME=${IMAGE_NAME:-nginx-auth-jwt}
 FULL_IMAGE_NAME=${ORG_NAME:-teslagov}/${IMAGE_NAME}
 
 TEST_CONTAINER_NAME_PREFIX="${IMAGE_NAME}-test"
+TEST_COMPOSE_FILE='test/docker-compose-test.yml'
 
 all() {
 	build_module
@@ -162,7 +163,8 @@ build_test() {
 	printf "${MAGENTA}Building test NGINX & runner using port ${port}...${NC}\n"
 	docker compose \
 	  -p ${TEST_CONTAINER_NAME_PREFIX} \
-	  -f ./test/docker-compose-test.yml build \
+	  -f ${TEST_COMPOSE_FILE} \
+		build \
 	  --build-arg RUNNER_BASE_IMAGE=${runnerBaseImage} \
 		--build-arg PORT=${port} \
 		--build-arg SSL_PORT=${sslPort} \
@@ -188,7 +190,7 @@ test() {
 	printf "${MAGENTA}Running tests...${NC}\n"
 	docker compose \
 	  -p ${TEST_CONTAINER_NAME_PREFIX} \
-		-f ./test/docker-compose-test.yml up \
+		-f ${TEST_COMPOSE_FILE} up \
 		--no-start
 
 
