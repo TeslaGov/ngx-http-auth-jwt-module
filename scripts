@@ -193,9 +193,8 @@ test() {
 		-f ${TEST_COMPOSE_FILE} up \
 		--no-start
 
-
-	trap 'docker compose -f ./test/docker-compose-test.yml down' 0
-
+	trap test_cleanup 0
+	
 	test_now
 }
 
@@ -218,6 +217,12 @@ test_now() {
 	echo "Tests were executed with the following options:"
 	echo "    SSL Version: ${SSL_VERSION}"
 	echo "  NGINX Version: ${NGINX_VERSION}"
+}
+
+test_cleanup() {
+	docker compose \
+		-p ${TEST_CONTAINER_NAME_PREFIX} \
+		-f ${TEST_COMPOSE_FILE} down
 }
 
 get_port() {
