@@ -1,20 +1,19 @@
 services:
 
   nginx:
-    container_name: ${TEST_CONTAINER_NAME_PREFIX}-nginx
+    container_name: ${TEST_CONTAINER_NAME_PREFIX:?required}-nginx
     build:
       context: .
       dockerfile: test-nginx.dockerfile
       args:
-        BASE_IMAGE: ${FULL_IMAGE_NAME}:${NGINX_VERSION}
+        BASE_IMAGE: ${FULL_IMAGE_NAME}:${NGINX_VERSION:?required}
     logging:
       driver: ${LOG_DRIVER:-journald}
 
   runner:
-    container_name: ${TEST_CONTAINER_NAME_PREFIX}-runner
+    container_name: ${TEST_CONTAINER_NAME_PREFIX:?required}-runner
     build:
       context: .
       dockerfile: test-runner.dockerfile
-    
     depends_on:
       - nginx

@@ -29,7 +29,7 @@ run_test () {
     local response=
     local testNum="${GRAY}${NUM_TESTS}${NC}\t"
 
-    while getopts "n:sp:r:c:x:" option; do
+    while getopts "n:asp:r:c:x:" option; do
       case $option in
         n)
           name=$OPTARG;;
@@ -73,7 +73,7 @@ run_test () {
       fi
       
       if [ "${okay}" == '1' ] && [ "${expectedResponseRegex}" != "" ] && ! [[ "${response}" =~ ${expectedResponseRegex} ]]; then
-        printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex}"
+        printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex//%/%%}"
         NUM_FAILED=$((${NUM_FAILED} + 1))
         okay=0
       fi
@@ -113,8 +113,8 @@ main() {
            -p '/' \
            -c '200'
 
-  run_test -s \
-           -n '[SSL] when auth disabled, should return 200' \
+  run_test -n '[SSL] when auth disabled, should return 200' \
+           -s \
            -p '/' \
            -c '200'
   
@@ -349,6 +349,26 @@ main() {
            -c 301 \
            -r '< Location: http://nginx:8000/profile/some-long-uuid' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'returns 302 if auth enabled and no JWT provided' \
+           -p '/return-url' \
+           -c '302'
+
+  run_test -n 'redirects to login if auth enabled and no JWT provided' \
+           -p '/return-url' \
+           -r '< Location: https://example\.com/login.*'
+
+  run_test -n 'adds return_url to login URL when redirected to login' \
+           -p '/return-url' \
+           -r '< Location: https://example\.com/login\?return_url=http://nginx.*'
+
+  run_test -n 'return_url includes port when redirected to login' \
+           -p '/return-url' \
+           -r "< Location: https://example\.com/login\?return_url=http://nginx:${PORT}/return-url"
+
+  run_test -n 'return_url includes query when redirected to login' \
+           -p '/return-url?test=123' \
+           -r '< Location: https://example\.com/login\?return_url=http://nginx.*/return-url%3Ftest=123'
 
   if [[ "${NUM_FAILED}" = '0' ]]; then
     printf "\nRan ${NUM_TESTS} tests successfully (skipped ${NUM_SKIPPED}).\n"
