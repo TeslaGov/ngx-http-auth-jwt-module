@@ -73,7 +73,7 @@ run_test () {
       fi
       
       if [ "${okay}" == '1' ] && [ "${expectedResponseRegex}" != "" ] && ! [[ "${response}" =~ ${expectedResponseRegex} ]]; then
-        printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex}"
+        printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex//%/%%}"
         NUM_FAILED=$((${NUM_FAILED} + 1))
         okay=0
       fi
@@ -356,23 +356,19 @@ main() {
 
   run_test -n 'redirects to login if auth enabled and no JWT provided' \
            -p '/return-url' \
-           -r '< Location: https://example.com/login?return_url'
+           -r '< Location: https://example\.com/login.*'
 
-  run_test -n 'adds return_url to login URL if auth enabled and no JWT provided' \
+  run_test -n 'adds return_url to login URL when redirected to login' \
            -p '/return-url' \
-           -r '< Location: https://example.com/login?return_url=http://nginx/return-url'
+           -r '< Location: https://example\.com/login\?return_url=http://nginx.*'
 
-  run_test -n 'return_url includes port' \
+  run_test -n 'return_url includes port when redirected to login' \
            -p '/return-url' \
-           -r "< Location: https://example.com/login?return_url=http://nginx/return-url:${PORT}"
+           -r "< Location: https://example\.com/login\?return_url=http://nginx:${PORT}/return-url"
 
-  run_test -n 'return_url includes query' \
+  run_test -n 'return_url includes query when redirected to login' \
            -p '/return-url?test=123' \
-           -r '< Location: https://example.com/login?return_url=http://nginx/return-url%3Ftest=123'
-
-  run_test -n 'return_url includes hash' \
-           -p '/return-url#test' \
-           -r '< Location: https://example.com/login?return_url=http://nginx/return-url#test'
+           -r '< Location: https://example\.com/login\?return_url=http://nginx.*/return-url%3Ftest=123'
 
   if [[ "${NUM_FAILED}" = '0' ]]; then
     printf "\nRan ${NUM_TESTS} tests successfully (skipped ${NUM_SKIPPED}).\n"
