@@ -103,7 +103,7 @@ cp_bin() {
 	local stopContainer=0;
 
 	if [ "$(docker container inspect -f '{{.State.Running}}' ${IMAGE_NAME} | true)" != "true" ]; then
-		start_nginx
+		start
 		stopContainer=1
 	fi
 
@@ -117,7 +117,7 @@ cp_bin() {
 	
 	if [ $stopContainer ]; then
 		printf "${MAGENTA}Stopping NGINX container (${IMAGE_NAME})...${NC}\n"
-		stop_nginx
+		stop
 	fi
 }
 
