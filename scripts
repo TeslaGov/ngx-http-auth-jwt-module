@@ -20,13 +20,13 @@ SSL_IMAGE_MAP[$SSL_VERSION_3_2_1]="bookworm-slim:openssl-${SSL_VERSION_3_2_1}"
 
 # supported NGINX versions -- for binary distribution
 NGINX_VERSIONS=(
-	'1.20.2' # legacy
-	'1.22.1' # legacy
-	'1.24.0' # legacy
-	'1.26.2' # stable
-	'1.26.3' # stable
-	'1.27.3' # mainline
-	'1.27.4' # mainline
+	1.20.2 # legacy
+	1.22.1 # legacy
+	1.24.0 # legacy
+	1.26.2 # stable
+	1.26.3 # stable
+	1.27.3 # mainline
+	1.27.4 # mainline
 )
 NGINX_VERSION=${NGINX_VERSION:-${NGINX_VERSIONS[-1]}}
 IMAGE_NAME=${IMAGE_NAME:-nginx-auth-jwt}
@@ -139,8 +139,7 @@ make_release() {
 		-C bin/usr/lib64/nginx/modules ngx_http_auth_jwt_module.so > /dev/null
 }
 
-# Create releases for the current mainline and stable version, as well as the 2 most recent "legacy" versions.
-#   See: https://nginx.org/en/download.html
+# Create releases for all NGINX versions defined in `NGINX_VERSIONS`.
 make_releases() {
 	local moduleVersion=$(git describe --tags --abbrev=0)
 
