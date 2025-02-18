@@ -30,7 +30,14 @@ jobs:
     strategy:
       matrix:
         # NGINX versions to build/test against
-        nginx-version: ['1.20.2', '1.22.1', '1.24.0', '1.26.2', '1.27.3']
+        nginx-version:
+          - '1.20.2' # legacy
+          - '1.22.1' # legacy
+          - '1.24.0' # legacy
+          - '1.26.2' # stable
+          - '1.26.3' # stable
+          - '1.27.3' # mainline
+          - '1.27.4' # mainline
 
         # The following versions of libjwt are compatible:
         #   * v1.0 - v1.12.0
