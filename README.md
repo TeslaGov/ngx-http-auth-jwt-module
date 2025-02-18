@@ -12,7 +12,7 @@ This module depends on the [JWT C Library](https://github.com/benmcollins/libjwt
 
 ## Directives
 
-This module requires several new `nginx.conf` directives, which can be specified at the `http`, `server`, or `location` levels.
+This module requires several new `nginx.conf` directives, which can be specified at the `http`, `server`, or `location` levels. See the [example NGINX config file](examples/nginx.conf) for more info.
 
 | Directive                            | Description                                                                                                                                                |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
