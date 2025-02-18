@@ -8,14 +8,17 @@ NC='\033[0m'
 
 # supported SSL versions
 SSL_VERSION_1_1_1w='1.1.1w'
-SSL_VERSION_3_0_11='3.0.11'
+SSL_VERSION_3_0_15='3.0.15'
 SSL_VERSION_3_2_1='3.2.1'
-SSL_VERSIONS=(${SSL_VERSION_3_2_1})
-SSL_VERSION=${SSL_VERSION:-$SSL_VERSION_3_0_11}
+SSL_VERSIONS=(
+	${SSL_VERSION_1_1_1w}
+	${SSL_VERSION_3_0_15}
+	${SSL_VERSION_3_2_1}
+)
 
 declare -A SSL_IMAGE_MAP
 SSL_IMAGE_MAP[$SSL_VERSION_1_1_1w]="bullseye-slim:openssl-${SSL_VERSION_1_1_1w}"
-SSL_IMAGE_MAP[$SSL_VERSION_3_0_11]="bookworm-slim:openssl-${SSL_VERSION_3_0_11}"
+SSL_IMAGE_MAP[$SSL_VERSION_3_0_15]="bookworm-slim:openssl-${SSL_VERSION_3_0_15}"
 SSL_IMAGE_MAP[$SSL_VERSION_3_2_1]="bookworm-slim:openssl-${SSL_VERSION_3_2_1}"
 
 # supported NGINX versions -- for binary distribution
@@ -28,7 +31,27 @@ NGINX_VERSIONS=(
 	1.27.3 # mainline
 	1.27.4 # mainline
 )
+
+# The following versions of libjwt are compatible:
+#   * v1.0 - v1.12.0
+#   * v1.12.1 - v1.14.0
+#   * v1.15.0+
+# At the time of writing this:
+#   * Debian and Ubuntu's repos have v1.10.2
+#   * EPEL has v1.12.1
+# This compiles against each version prior to a breaking change and the latest release
+LIBJWT_VERSION_DEBIAN=1.12.0
+LIBJWT_VERSION_EPEL=1.14.0
+LIBJWT_VERSION_LATEST=1.15.3
+LIBJWT_VERSIONS=(
+	${LIBJWT_VERSION_DEBIAN}
+	${LIBJWT_VERSION_EPEL}
+	${LIBJWT_VERSION_LATEST}
+)
+
+SSL_VERSION=${SSL_VERSION:-$SSL_VERSION_3_0_15}
 NGINX_VERSION=${NGINX_VERSION:-${NGINX_VERSIONS[-1]}}
+LIBJWT_VERSION=${LIBJWT_VERSION:-${LIBJWT_VERSION_DEBIAN}}
 IMAGE_NAME=${IMAGE_NAME:-nginx-auth-jwt}
 FULL_IMAGE_NAME=${ORG_NAME:-teslagov}/${IMAGE_NAME}
 TEST_CONTAINER_NAME_PREFIX="${IMAGE_NAME}-test"
@@ -40,7 +63,7 @@ all() {
 	test_all
 }
 
-verify_and_build_base_image() {
+build_base_image() {
 	local image=${SSL_IMAGE_MAP[$SSL_VERSION]}
 	local baseImage=${image%%:*}
 
@@ -53,23 +76,24 @@ verify_and_build_base_image() {
 		  --build-arg BASE_IMAGE=debian:${baseImage} \
 			--build-arg SSL_VERSION=${SSL_VERSION} \
 			-f openssl.dockerfile \
-			-t ${image} .
+			-t ${image} \
+			.
 	fi
 }
 
 build_module() {
-	local dockerArgs=${1:-}
 	local baseImage=${SSL_IMAGE_MAP[$SSL_VERSION]}
-	
-	verify_and_build_base_image
 
-	printf "${MAGENTA}Building module for NGINX ${NGINX_VERSION}...${NC}\n"
+	build_base_image
+
+	printf "${MAGENTA}Building module for NGINX ${NGINX_VERSION}, libjwt ${LIBJWT_VERSION}...${NC}\n"
 	docker buildx build \
 		-f nginx.dockerfile \
 		-t ${FULL_IMAGE_NAME}:${NGINX_VERSION} \
 	  --build-arg BASE_IMAGE=${baseImage} \
 		--build-arg NGINX_VERSION=${NGINX_VERSION} \
-		${dockerArgs} .
+		--build-arg LIBJWT_VERSION=${LIBJWT_VERSION} \
+		.
 	
 	if [ "$?" -ne 0 ]; then
 		printf "${RED}✘ Build failed ${NC}\n"
@@ -79,12 +103,9 @@ build_module() {
 }
 
 rebuild_module() {
-	clean_module
-	build_module --no-cache
-}
-
-clean_module() {
 	docker rmi -f $(docker images --filter=label=stage=ngx_http_auth_jwt_builder --quiet) 2> /dev/null || true
+
+	build_module
 }
 
 start() {
@@ -111,9 +132,9 @@ cp_bin() {
 	rm -rf ${destDir}/*
 	mkdir -p ${destDir}
 	docker exec "${IMAGE_NAME}" sh -c "cd /; tar -chf - \
-		usr/lib64/nginx/modules/ngx_http_auth_jwt_module.so \
-		usr/lib/$(uname -m)-linux-gnu/libjansson.so.* \
-		usr/lib/$(uname -m)-linux-gnu/libjwt.*" | tar -xf - -C ${destDir} &>/dev/null
+		usr/lib/nginx/modules/ngx_http_auth_jwt_module.so \
+		usr/local/lib/libjansson.so.* \
+		usr/local/lib/libjwt.*" | tar -xf - -C ${destDir} &>/dev/null
 	
 	if [ $stopContainer ]; then
 		printf "${MAGENTA}Stopping NGINX container (${IMAGE_NAME})...${NC}\n"
@@ -122,31 +143,30 @@ cp_bin() {
 }
 
 make_release() {
-	local moduleVersion=${1}
-	
-	NGINX_VERSION=${2}
+	local moduleVersion=$(git describe --tags --abbrev=0)
 
 	printf "${MAGENTA}Making release for version ${moduleVersion} for NGINX ${NGINX_VERSION}...${NC}\n"
 
 	rebuild_module
 	rebuild_test
-	test
+	test --no-build
 	cp_bin
 
 	mkdir -p release
-	tar -czvf release/ngx_http_auth_jwt_module_${moduleVersion}_nginx_${NGINX_VERSION}.tgz \
+	tar -czvf release/ngx-http-auth-jwt-module-${moduleVersion}_libjwt-${LIBJWT_VERSION}_nginx-${NGINX_VERSION}.tgz \
 		README.md \
-		-C bin/usr/lib64/nginx/modules ngx_http_auth_jwt_module.so > /dev/null
+		-C bin/usr/lib/nginx/modules ngx_http_auth_jwt_module.so > /dev/null
 }
 
 # Create releases for all NGINX versions defined in `NGINX_VERSIONS`.
 make_releases() {
-	local moduleVersion=$(git describe --tags --abbrev=0)
-
 	rm -rf release/*
 
-	for v in ${NGINX_VERSIONS[@]}; do
-		make_release ${moduleVersion} ${v}
+	for NGINX_VERSION in ${NGINX_VERSIONS[@]}; do
+		for LIBJWT_VERSION in ${LIBJWT_VERSIONS[@]}; do
+			export NGINX_VERSION LIBJWT_VERSION
+			make_release
+		done
 	done
 }
 
@@ -178,14 +198,21 @@ rebuild_test() {
 test_all() {
 	for SSL_VERSION in "${SSL_VERSIONS[@]}"; do
 		for NGINX_VERSION in "${NGINX_VERSIONS[@]}"; do
-			test
+			for LIBJWT_VERSION in ${LIBJWT_VERSIONS[@]}; do
+				export SSL_VERSION NGINX_VERSION LIBJWT_VERSION
+				test
+			done
 		done
 	done
 }
 
 test() {
-	build_module
-	build_test
+	if [[ ! "$*" =~ --no-build ]]; then
+		build_module
+		build_test
+	fi
+
+	trap 'test_cleanup' 0
 
 	printf "${MAGENTA}Running tests...${NC}\n"
 	docker compose \
@@ -193,8 +220,6 @@ test() {
 		-f ${TEST_COMPOSE_FILE} up \
 		--no-start
 
-	trap test_cleanup 0
-	
 	test_now
 }
 
@@ -202,21 +227,22 @@ test_now() {
 	nginxContainerName="${TEST_CONTAINER_NAME_PREFIX}-nginx"
 	runnerContainerName="${TEST_CONTAINER_NAME_PREFIX}-runner"
 
+	echo
+	echo "Executing tests with the following options:"
+	echo "  SSL Version:     ${SSL_VERSION}"
+	echo "  LIBJWT Version:  ${LIBJWT_VERSION}"
+	echo "  NGINX Version:   ${NGINX_VERSION}"
+
 	docker start ${nginxContainerName}
 	
 	if [ "$(docker container inspect -f '{{.State.Running}}' ${nginxContainerName})" != "true" ]; then
 		printf "${RED}Failed to start container \"${nginxContainerName}\". See logs below:\n"
 		docker logs ${nginxContainerName}
 		printf "${NC}\n"
-		return
+		return 1
 	fi
 
 	docker start -a ${runnerContainerName}
-
-	echo
-	echo "Tests were executed with the following options:"
-	echo "    SSL Version: ${SSL_VERSION}"
-	echo "  NGINX Version: ${NGINX_VERSION}"
 }
 
 test_cleanup() {

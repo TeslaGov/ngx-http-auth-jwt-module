@@ -15,4 +15,4 @@ RUN <<`
 
 COPY test.sh .
 
-CMD ./test.sh
+CMD ["./test.sh"]

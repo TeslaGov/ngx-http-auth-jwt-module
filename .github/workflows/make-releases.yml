@@ -29,7 +29,6 @@ jobs:
     needs: meta
     strategy:
       matrix:
-        # NGINX versions to build/test against
         nginx-version:
           - 1.20.2 # legacy
           - 1.22.1 # legacy
@@ -39,14 +38,6 @@ jobs:
           - 1.27.3 # mainline
           - 1.27.4 # mainline
 
-        # The following versions of libjwt are compatible:
-        #   * v1.0 - v1.12.0
-        #   * v1.12.1 - v1.14.0
-        #   * v1.15.0+
-        # At the time of writing this:
-        #   * Debian and Ubuntu's repos have v1.10.2
-        #   * EPEL has v1.12.1
-        # This compiles against each version prior to a breaking change and the latest release
         libjwt-version:
           - 1.12.0
           - 1.14.0
@@ -80,9 +71,10 @@ jobs:
     - name: Build jansson
       working-directory: ./jansson
       run: |
-        cmake . -DJANSSON_BUILD_SHARED_LIBS=1 -DJANSSON_BUILD_DOCS=OFF && \
-        make && \
-        make check && \
+        set -e
+        cmake . -DJANSSON_BUILD_SHARED_LIBS=1 -DJANSSON_BUILD_DOCS=OFF
+        make
+        make check
         sudo make install
 
     # TODO cache the build result so we don't have to do this every time?
@@ -96,9 +88,10 @@ jobs:
     - name: Build libjwt
       working-directory: ./libjwt
       run: |
-        autoreconf -i && \
-        ./configure && \
-        make all && \
+        set -e
+        autoreconf -i
+        ./configure
+        make all
         sudo make install
 
     - name: Download NGINX

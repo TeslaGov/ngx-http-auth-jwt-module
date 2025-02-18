@@ -1,24 +1,42 @@
-ARG BASE_IMAGE
+ARG BASE_IMAGE=${:?required}
 ARG NGINX_VERSION
+ARG LIBJWT_VERSION
 
-FROM ${BASE_IMAGE} AS ngx_http_auth_jwt_builder_base
+FROM ${BASE_IMAGE} AS ngx_http_auth_jwt_builder
 LABEL stage=ngx_http_auth_jwt_builder
-RUN chmod 1777 /tmp
-RUN <<`
-apt-get update
-apt-get install -y curl build-essential
-`
-
-FROM ngx_http_auth_jwt_builder_base AS ngx_http_auth_jwt_builder_module
-LABEL stage=ngx_http_auth_jwt_builder
-ENV PATH "${PATH}:/etc/nginx"
+ENV PATH="${PATH}:/etc/nginx"
 ENV LD_LIBRARY_PATH=/usr/local/lib
 ARG NGINX_VERSION
+ARG LIBJWT_VERSION
+
 RUN <<`
 	set -e
-	apt-get install -y libjwt-dev libjwt0 libjansson-dev libjansson4 libpcre2-dev zlib1g-dev libpcre3-dev
-	mkdir -p /root/build/ngx-http-auth-jwt-module
+	apt-get update
+	apt-get upgrade -y
 `
+
+RUN	apt-get install -y curl git zlib1g-dev libpcre3-dev build-essential libpcre2-dev zlib1g-dev libpcre3-dev pkg-config cmake dh-autoreconf
+
+WORKDIR /root/build/libjansson
+RUN <<`
+	set -e
+	git clone --depth 1 --branch v2.14 https://github.com/akheron/jansson .
+	cmake . -DJANSSON_BUILD_SHARED_LIBS=1 -DJANSSON_BUILD_DOCS=OFF
+	make
+	make check
+	make install
+`
+
+WORKDIR /root/build/libjwt
+RUN <<`
+	set -e
+	git clone --depth 1 --branch v${LIBJWT_VERSION} https://github.com/benmcollins/libjwt .
+	autoreconf -i
+	./configure
+	make all
+	make install
+`
+
 WORKDIR /root/build/ngx-http-auth-jwt-module
 ADD config ./
 ADD src/*.h src/*.c ./src/
@@ -29,6 +47,7 @@ RUN <<`
 	curl -O http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
 	tar -xzf nginx-${NGINX_VERSION}.tar.gz --strip-components 1 -C nginx
 `
+
 WORKDIR /root/build/nginx
 RUN <<`
 	set -e
@@ -89,30 +108,46 @@ RUN <<`
 		${BUILD_FLAGS}
 		# --with-openssl=/usr/local \
 `
+
 RUN make modules
 RUN make install
-WORKDIR /usr/lib64/nginx/modules
-RUN	cp /root/build/nginx/objs/ngx_http_auth_jwt_module.so .
-RUN rm -rf /root/build
-RUN adduser --system --no-create-home --shell /bin/false --group --disabled-login nginx
-RUN mkdir -p /var/cache/nginx /var/log/nginx
-WORKDIR /etc/nginx
 
-FROM ngx_http_auth_jwt_builder_module AS ngx_http_auth_jwt_nginx
-LABEL maintainer="TeslaGov" email="developers@teslagov.com"
-ARG NGINX_VERSION
+WORKDIR /usr/lib/nginx/modules
+RUN	mv /root/build/nginx/objs/ngx_http_auth_jwt_module.so .
+RUN rm -rf /root/build
+
 RUN <<`
 	set -e
-
-	apt-get update
-	apt-get install -y libjansson4 libjwt0
+  apt-get remove -y curl git zlib1g-dev libpcre3-dev build-essential libpcre2-dev zlib1g-dev libpcre3-dev pkg-config cmake dh-autoreconf
+  # apt-get install -y gnupg2 ca-certificates lsb-release debian-archive-keyring
 	apt-get clean
 `
+
+RUN <<`
+	set -e
+	groupadd nginx
+	useradd -g nginx nginx
+`
+
+# RUN <<`
+#   set -e
+#   curl https://nginx.org/keys/nginx_signing.key | gpg --dearmor > /usr/share/keyrings/nginx-archive-keyring.gpg
+#   printf "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/debian `lsb_release -cs` nginx\n" > /etc/apt/sources.list.d/nginx.list
+#   printf "Package: *\nPin: origin nginx.org\nPin: release o=nginx\nPin-Priority: 900\n" > /etc/apt/preferences.d/99nginx
+# `
+
+# RUN <<`
+#   set -e
+#   apt-get update
+#   apt-get install -y nginx
+# `
+
 COPY <<` /etc/nginx/nginx.conf
+daemon off;
 user nginx;
 pid /var/run/nginx.pid;
 
-load_module /usr/lib64/nginx/modules/ngx_http_auth_jwt_module.so;
+load_module /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so;
 
 worker_processes 1;
 
@@ -124,12 +159,17 @@ http {
 	include mime.types;
 	default_type application/octet-stream;
 
-	log_format main '$$remote_addr - $$remote_user [$$time_local] "$$request" '
-	                '$$status $$body_bytes_sent "$$http_referer" '
-	                '"$$http_user_agent" "$$http_x_forwarded_for"';
+	log_format main '\$remote_addr - \$remote_user [\$time_local] "\$request" '
+	                '\$status \$body_bytes_sent "\$http_referer" '
+	                '"\$http_user_agent" "\$http_x_forwarded_for"';
 
 	access_log /var/log/nginx/access.log main;
 	include conf.d/*.conf;
 }
 `
-ENTRYPOINT ["nginx", "-g", "daemon off;"]
+
+WORKDIR /var/cache/nginx
+RUN chown nginx:nginx .
+
+WORKDIR /
+CMD ["nginx"]
