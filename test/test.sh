@@ -261,6 +261,50 @@ main() {
            -p '/secure/custom-header/hs256/' \
            -c '200' \
            -x '--header "Auth-Token: Bearer ${JWT_HS256_VALID}"'
+  
+  run_test -n 'when auth enabled with HS256 algorithm and valid JWT as query-string jwt-token, returns 200' \
+           -p '/secure/auth-query-string/hs256/?token=${JWT_HS256_VALID}' \
+           -c '200'
+
+  run_test -n 'when auth enabled with HS256 algorithm and valid JWT as query-string something-jwt-token, returns 401' \
+           -p '/secure/auth-query-string/hs256/?something-jwt-token=${JWT_HS256_VALID}' \
+           -c '401'
+  
+  run_test -n 'when auth enabled with HS256 algorithm and non-valid JWT as query-string jwt-token, returns 401' \
+           -p '/secure/auth-query-string/hs256/?token=ABBAKEY' \
+           -c '401'
+  
+  run_test -n 'when auth enabled with HS256 algorithm and no query-string present, returns 401' \
+           -p '/secure/auth-query-string/hs256/' \
+           -c '401'
+  
+  run_test -n 'when auth enabled with HS256 algorithm and empty token present, returns 401' \
+           -p '/secure/auth-query-string/hs256/?token' \
+           -c '401'
+  
+  run_test -n 'when auth enabled with HS256 algorithm and empty token present, returns 401' \
+           -p '/secure/auth-query-string/hs256/?token=' \
+           -c '401'
+  
+  run_test -n 'when auth enabled with HS256 algorithm and just random query-string present, returns 401' \
+           -p '/secure/auth-query-string/hs256/?key1=abba' \
+           -c '401'
+  
+  run_test -n 'when auth enabled with HS256 algorithm and valid JWT as query-string jwt-token after first query-string, returns 200' \
+           -p '/secure/auth-query-string/hs256/?key1=abba\&token=${JWT_HS256_VALID}' \
+           -c '200'
+  
+  run_test -n 'when auth enabled with HS256 algorithm and valid JWT as query-string jwt-token, second query-string after, returns 200' \
+           -p '/secure/auth-query-string/hs256/?token=${JWT_HS256_VALID}\&key1=abba' \
+           -c '200'
+  
+  run_test -n 'when auth enabled with HS256 algorithm and valid JWT as query-string jwt-token in middle, returns 200' \
+           -p '/secure/auth-query-string/hs256/?key1=abba\&token=${JWT_HS256_VALID}\&key2=abba' \
+           -c '200'
+  
+  run_test -n 'when auth enabled with HS256 algorithm and valid JWT as query-string jwt-token with overlapping query-string first, returns 200' \
+           -p '/secure/auth-query-string/hs256/?jwt-token2=abba\&token=${JWT_HS256_VALID}' \
+           -c '200'
 
   run_test -n 'extracts single claim to request variable' \
            -p '/secure/extract-claim/request/sub' \
