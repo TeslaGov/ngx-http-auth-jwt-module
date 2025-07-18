@@ -219,34 +219,15 @@ test() {
   trap 'test_cleanup' 0
 
   printf "${MAGENTA}Running tests...${NC}\n"
+  printf "\n"
+  printf "Executing tests with the following options:\n"
+  printf "  SSL Version:     ${SSL_VERSION}\n"
+  printf "  LIBJWT Version:  ${LIBJWT_VERSION}\n"
+  printf "  NGINX Version:   ${NGINX_VERSION}\n"
+
   docker compose \
     -p ${TEST_CONTAINER_NAME_PREFIX} \
-    -f ${TEST_COMPOSE_FILE} up \
-    --no-start
-
-  test_now
-}
-
-test_now() {
-  nginxContainerName="${TEST_CONTAINER_NAME_PREFIX}-nginx"
-  runnerContainerName="${TEST_CONTAINER_NAME_PREFIX}-runner"
-
-  echo
-  echo "Executing tests with the following options:"
-  echo "  SSL Version:     ${SSL_VERSION}"
-  echo "  LIBJWT Version:  ${LIBJWT_VERSION}"
-  echo "  NGINX Version:   ${NGINX_VERSION}"
-
-  docker start ${nginxContainerName}
-
-  if [ "$(docker container inspect -f '{{.State.Running}}' ${nginxContainerName})" != "true" ]; then
-    printf "${RED}Failed to start container \"${nginxContainerName}\". See logs below:\n"
-    docker logs ${nginxContainerName}
-    printf "${NC}\n"
-    return 1
-  fi
-
-  docker start -a ${runnerContainerName}
+    -f ${TEST_COMPOSE_FILE} up
 }
 
 test_cleanup() {

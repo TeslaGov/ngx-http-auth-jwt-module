@@ -334,13 +334,18 @@ main() {
            -c 401 \
            -x '--header "Authorization: Bearer ${JWT_HS256_MISSING_SUB}"'
 
-  run_test -n 'extracts single claim to response body' \
+  run_test -n 'extracts single claim as var' \
            -p '/secure/extract-claim/body/sub' \
            -c 200 \
            -r 'sub: some-long-uuid$' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
-  run_test -n 'extracts multiple claims to response body' \
+  run_test -n 'fails gracefully when extracting single claim as var with no JWT' \
+           -p '/secure/extract-claim/body/sub' \
+           -c 200 \
+           -r 'sub: some-long-uuid$'
+
+  run_test -n 'extracts multiple claims as vars' \
            -p '/secure/extract-claim/body/multiple' \
            -c 200 \
            -r 'you are: hello  world$' \
