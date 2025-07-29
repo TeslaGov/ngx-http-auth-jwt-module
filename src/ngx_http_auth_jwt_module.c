@@ -15,6 +15,7 @@
 #include <jansson.h>
 
 #include "arrays.h"
+#include "ngx_http_auth_jwt_args_processing.h"
 #include "ngx_http_auth_jwt_header_processing.h"
 #include "ngx_http_auth_jwt_binary_converters.h"
 #include "ngx_http_auth_jwt_string.h"
@@ -859,8 +860,9 @@ static ngx_int_t load_public_key(ngx_conf_t *cf, auth_jwt_conf_t *conf)
 
 static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
 {
-  static const char *HEADER_PREFIX = "HEADER=";
-  static const char *COOKIE_PREFIX = "COOKIE=";
+  static const char HEADER_PREFIX[] = "HEADER=";
+  static const char COOKIE_PREFIX[] = "COOKIE=";
+  static const char QUERY_STRING_PREFIX[] = "QUERYSTRING=";
   char *jwtPtr = NULL;
 
   ngx_log_debug(NGX_LOG_DEBUG, r->connection->log, 0, "jwt_location.len %d", jwt_location.len);
@@ -918,6 +920,57 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
       jwtPtr = ngx_str_t_to_char_ptr(r->pool, jwtCookieVal);
     }
   }
+  else if (jwt_location.len > sizeof(QUERY_STRING_PREFIX) && ngx_strncmp(jwt_location.data, QUERY_STRING_PREFIX, sizeof(QUERY_STRING_PREFIX) - 1) == 0) {
+    jwt_location.data += sizeof(QUERY_STRING_PREFIX) - 1;
+    jwt_location.len -= sizeof(QUERY_STRING_PREFIX) - 1;
 
+    size_t token_key_start = 0, token_value_start = 0, token_end = 0;
+
+    bool found_token = search_token_from_args(
+      &jwt_location,
+      &r->args,
+      &token_key_start,
+      &token_value_start,
+      &token_end
+    );
+
+    if (found_token)
+    {
+      int token_len = token_end - token_value_start;
+
+      jwtPtr = ngx_palloc(r->pool, token_len + 1);
+      if (jwtPtr != NULL) {
+        ngx_memcpy(jwtPtr, r->args.data + token_value_start, token_len);
+        *(jwtPtr + token_len) = '\0';
+      }
+
+      // strip first or last & from args
+      if (token_key_start > 0)
+      {
+        token_key_start--;
+      }
+      else if (token_end < (r->args.len - 1))
+      {
+        token_end++;
+      }
+
+      size_t mutated_args_len = 0;
+
+      // Strip key from args
+      u_char *args_ptr = create_args_without_token(
+        r->pool,
+        &r->args,
+        token_key_start,
+        token_end,
+        &mutated_args_len
+      );
+
+      if (args_ptr != NULL)
+      {
+        r->args.data = args_ptr;
+        r->args.len = mutated_args_len;
+      }
+    }
+  }
   return jwtPtr;
 }
