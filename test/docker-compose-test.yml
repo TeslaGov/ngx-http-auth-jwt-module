@@ -5,8 +5,11 @@ services:
     build:
       context: .
       dockerfile: test-nginx.dockerfile
+      platforms:
+        - linux/amd64
       args:
         BASE_IMAGE: ${FULL_IMAGE_NAME}:${NGINX_VERSION:?required}
+    platform: linux/amd64
     logging:
       driver: ${LOG_DRIVER:-journald}
 
@@ -15,5 +18,8 @@ services:
     build:
       context: .
       dockerfile: test-runner.dockerfile
+      platforms:
+        - linux/amd64
+    platform: linux/amd64
     depends_on:
       - nginx
