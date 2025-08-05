@@ -29,9 +29,10 @@ run_test () {
     local curlCommand=
     local exitCode=
     local response=
+    local expectedLogSub=
     local testNum="${GRAY}${NUM_TESTS}${NC}\t"
 
-    while getopts "n:asp:r:c:x:" option; do
+    while getopts "n:asp:r:c:x:l:" option; do
       case $option in
         n)
           name=$OPTARG;;
@@ -46,6 +47,8 @@ run_test () {
           expectedResponseRegex=$OPTARG;;
         x)
           extraCurlOpts=$OPTARG;;
+        l)
+          expectedLogSub=$OPTARG;;
         \?) # Invalid option
           printf "Error: Invalid option\n";
           exit;;
@@ -82,6 +85,16 @@ run_test () {
       
       if [ "${okay}" == '1' ]; then
         printf "${GREEN}${name}";
+      fi
+
+      if ["${expectedLogSub}" != ""]; then
+        local logEntry=$(tail -n 1 /var/log/nginx/test_access.log)
+
+        if ["${logEntry}" != "Log extract test sub:${expectedLogSub}"]; then
+          printf "${RED}${name} -- log extracted sub is not what is expected:${expectedLogSub}; logged: ${logEntry}"
+          NUM_FAILED=$((${NUM_FAILED} + 1))
+          okay=0
+        fi
       fi
     fi
 
@@ -376,6 +389,13 @@ main() {
   run_test -n 'return_url includes query when redirected to login' \
            -p '/return-url?test=123' \
            -r '< Location: https://example\.com/login\?return_url=http://nginx.*/return-url%3Ftest=123'
+  
+  run_test -n 'acess_log extract valid sub' \
+           -p '/log' \
+           -c 200 \
+           -r 'logged sub' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"' \
+           -l 'some-long-uuid'
 
   if [[ "${NUM_FAILED}" = '0' ]]; then
     printf "\nRan ${NUM_TESTS} tests successfully (skipped ${NUM_SKIPPED}).\n"

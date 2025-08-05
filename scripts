@@ -192,6 +192,7 @@ build_test() {
     --build-arg RUNNER_BASE_IMAGE=${runnerBaseImage} \
     --build-arg PORT=${port} \
     --build-arg SSL_PORT=${sslPort} \
+    --build-arg platform="linux/amd64" \
      ${dockerArgs}
 }
 
@@ -241,9 +242,16 @@ get_port() {
   endPort=$((startPort + 100))
 
   for p in $(seq ${startPort} ${endPort}); do
-    if ! ss -ln | grep -q ":${p} "; then
-      echo ${p}
-      break
+    if [ "$(uname)" == "Darwin" ]; then
+      if ! lsof -i -P | grep LISTEN | grep -q ":${p} "; then
+        echo ${p}
+        break
+      fi
+    elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+      if ! ss -ln | grep -q ":${p} "; then
+        echo ${p}
+        break
+      fi
     fi
   done
 }
