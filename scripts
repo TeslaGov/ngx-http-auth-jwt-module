@@ -1,4 +1,6 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
+
+set -eu
 
 MAGENTA='\u001b[35m'
 BLUE='\033[0;34m'
