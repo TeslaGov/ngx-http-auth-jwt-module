@@ -31,24 +31,8 @@ RUN <<`
     ldconfig
 
     ln -sf ${OUT_DIR}/bin/openssl /usr/bin/openssl
-    
-    # Handle both lib and lib64 directory structures
-    if [ -d "${OUT_DIR}/lib64" ]; then
-        LIB_DIR="${OUT_DIR}/lib64"
-    else
-        LIB_DIR="${OUT_DIR}/lib"
-    fi
-    
-    # Handle different system library directory structures
-    SYSTEM_LIB_DIR="/lib"
-    if [ -d "/lib/$(uname -m)-linux-gnu" ]; then
-        SYSTEM_LIB_DIR="/lib/$(uname -m)-linux-gnu"
-    elif [ -d "/lib64" ]; then
-        SYSTEM_LIB_DIR="/lib64"
-    fi
-    
-    ln -sf ${LIB_DIR}/libssl.so.3 ${SYSTEM_LIB_DIR}/libssl.so.3
-    ln -sf ${LIB_DIR}/libcrypto.so.3 ${SYSTEM_LIB_DIR}/libcrypto.so.3
+    ln -sf ${OUT_DIR}/lib64/libssl.so.3 /lib/$(uname -m)-linux-gnu/libssl.so.3
+    ln -sf ${OUT_DIR}/lib64/libcrypto.so.3 /lib/$(uname -m)-linux-gnu/libcrypto.so.3
 `
 WORKDIR /
 RUN rm -rf ${SRC_DIR}
