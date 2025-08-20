@@ -1,4 +1,6 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
+
+set -eu
 
 # set a test # here to execute only that test and output additional info
 DEBUG=

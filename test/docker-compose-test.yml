@@ -11,7 +11,7 @@ services:
         BASE_IMAGE: ${FULL_IMAGE_NAME}:${NGINX_VERSION:?required}
     platform: linux/amd64
     logging:
-      driver: ${LOG_DRIVER:-journald}
+      driver: ${LOG_DRIVER:-json-file}
 
   runner:
     container_name: ${TEST_CONTAINER_NAME_PREFIX:?required}-runner

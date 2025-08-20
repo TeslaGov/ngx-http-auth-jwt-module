@@ -192,6 +192,20 @@ Once you save your changes to `.vscode/c_cpp_properties.json`, you should see th
 
 ### Building and Testing
 
+#### Prerequisites
+
+- Docker and Docker Compose
+- For **macOS users**: Bash 4.0+ is required due to the use of associative arrays. macOS ships with Bash 3.2 by default. You can upgrade with:
+  ```shell
+  # Install a newer bash version
+  brew install bash
+  
+  # Update your shell or ensure the scripts use the new bash
+  export PATH="/opt/homebrew/bin:$PATH"  # or /usr/local/bin for Intel Macs
+  ```
+
+#### Available Commands
+
 The `./scripts` file contains multiple commands to make things easy:
 
 | Command               | Description                                                       |
@@ -234,11 +248,14 @@ The tests use a customized NGINX image, distinct from the main image, as well as
 
 After making changes and finding that some tests fail, it can be difficult to understand why. By default, logs are written to Docker's internal log mechanism, but they won't be persisted after the test run completes and the containers are removed.
 
-If you'd like to persist logs across test runs, you can configure the log driver to use `journald` (on Linux/Unix systems for example). You can do this by setting the environment variable `LOG_DRIVER` before running the tests:
+If you'd like to persist logs across test runs, you can configure the log driver. By default, logs use the `json-file` driver for cross-platform compatibility. On Linux systems, you may prefer to use `journald` for better integration with systemd. You can do this by setting the environment variable `LOG_DRIVER` before running the tests:
 
 ```shell
-# need to rebuild the test runner with the proper log driver
+# For Linux systems with systemd (optional)
 export LOG_DRIVER=journald
+
+# For other systems or if you prefer file-based logs (default)
+export LOG_DRIVER=json-file
 
 # rebuild the test images
 ./scripts rebuild_test
@@ -247,15 +264,24 @@ export LOG_DRIVER=journald
 ./scripts test
 
 # check the logs -- adjust the container name as needed
+# For journald (Linux systems):
 journalctl -eu docker CONTAINER_NAME=nginx-auth-jwt-test-nginx
+
+# For json-file driver (all systems):
+docker logs nginx-auth-jwt-test-nginx
 ```
 
-Now you'll be able to see logs from previous test runs. The best way to make use of this  is to open two terminals, one where you run the tests, and one where you follow the logs:
+Now you'll be able to see logs from previous test runs. The best way to make use of this is to open two terminals, one where you run the tests, and one where you follow the logs:
 
 ```shell
 # terminal 1
 ./scripts test
 
-# terminal 2
+# terminal 2 - choose based on your LOG_DRIVER setting:
+
+# For journald:
 journalctl -fu docker CONTAINER_NAME=jwt-nginx-test
+
+# For json-file (default):
+docker logs -f nginx-auth-jwt-test-nginx
 ```
