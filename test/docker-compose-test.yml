@@ -31,4 +31,4 @@ services:
     pull_policy: always
     depends_on:
       nginx:
-        condition: service_started
+        condition: service_healthy
