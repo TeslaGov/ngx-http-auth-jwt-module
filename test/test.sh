@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -eu
+set -u
 
 # set a test # here to execute only that test and output additional info
 DEBUG=
@@ -29,7 +29,6 @@ run_test () {
     local curlCommand=
     local exitCode=
     local response=
-    local expectedLogSub=
     local testNum="${GRAY}${NUM_TESTS}${NC}\t"
 
     while getopts "n:asp:r:c:x:l:" option; do
@@ -47,27 +46,27 @@ run_test () {
           expectedResponseRegex=$OPTARG;;
         x)
           extraCurlOpts=$OPTARG;;
-        l)
-          expectedLogSub=$OPTARG;;
         \?) # Invalid option
           printf "Error: Invalid option\n";
           exit;;
       esac
     done
 
+    printf "\n${testNum}"
+
     curlCommand="curl -skv ${scheme}://nginx:${port}${path} -H 'Cache-Control: no-cache' ${extraCurlOpts} 2>&1"
+    trap "" EXIT
     response=$(eval "${curlCommand}")
     exitCode=$?
-    
-    printf "\n${testNum}"
 
     if [ "${exitCode}" -ne "0" ]; then
       printf "${RED}${name} -- unexpected exit code from cURL\n\tcURL Exit Code: ${exitCode}";
       NUM_FAILED=$((${NUM_FAILED} + 1));
+      exitCode=
     else
       local okay=1
 
-      if [ "${expectedCode}" != "" ]; then
+      if [[ -n "${expectedCode}" ]]; then
         local responseCode=$(echo "${response}" | grep -Eo 'HTTP/1.1 ([0-9]{3})' | awk '{print $2}')
 
         if [ "${expectedCode}" != "${responseCode}" ]; then
@@ -76,25 +75,15 @@ run_test () {
           okay=0
         fi
       fi
-      
+
       if [ "${okay}" == '1' ] && [ "${expectedResponseRegex}" != "" ] && ! [[ "${response}" =~ ${expectedResponseRegex} ]]; then
-        printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex//%/%%}"
+        printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex//%/%%}\n\tactual:${reponse:-""}"
         NUM_FAILED=$((${NUM_FAILED} + 1))
         okay=0
       fi
-      
+
       if [ "${okay}" == '1' ]; then
         printf "${GREEN}${name}";
-      fi
-
-      if ["${expectedLogSub}" != ""]; then
-        local logEntry=$(tail -n 1 /var/log/nginx/test_access.log)
-
-        if ["${logEntry}" != "Log extract test sub:${expectedLogSub}"]; then
-          printf "${RED}${name} -- log extracted sub is not what is expected:${expectedLogSub}; logged: ${logEntry}"
-          NUM_FAILED=$((${NUM_FAILED} + 1))
-          okay=0
-        fi
       fi
     fi
 
@@ -132,11 +121,11 @@ main() {
            -s \
            -p '/' \
            -c '200'
-  
+
   run_test -n 'when auth enabled with default algorithm and no JWT in Authorization header, returns 302' \
            -p '/secure/auth-header/default' \
            -c '302'
-  
+
   run_test -n '[SSL] when auth enabled with default algorithm and no JWT in Authorization header, returns 302' \
            -s \
            -p '/secure/auth-header/default' \
@@ -354,9 +343,9 @@ main() {
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
   run_test -n 'fails gracefully when extracting single claim as var with no JWT' \
-           -p '/secure/extract-claim/body/sub' \
+           -p '/unsecure/extract-claim/body/sub' \
            -c 200 \
-           -r 'sub: some-long-uuid$'
+           -r 'sub: '
 
   run_test -n 'extracts multiple claims as vars' \
            -p '/secure/extract-claim/body/multiple' \
@@ -389,13 +378,12 @@ main() {
   run_test -n 'return_url includes query when redirected to login' \
            -p '/return-url?test=123' \
            -r '< Location: https://example\.com/login\?return_url=http://nginx.*/return-url%3Ftest=123'
-  
+
   run_test -n 'acess_log extract valid sub' \
            -p '/log' \
            -c 200 \
-           -r 'logged sub' \
-           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"' \
-           -l 'some-long-uuid'
+           -r 'Log extract test sub: some-long-uuid$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
   if [[ "${NUM_FAILED}" = '0' ]]; then
     printf "\nRan ${NUM_TESTS} tests successfully (skipped ${NUM_SKIPPED}).\n"
