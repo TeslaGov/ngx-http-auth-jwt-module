@@ -4,6 +4,13 @@ FROM ${BASE_IMAGE:?required}
 ARG PORT
 ARG SSL_PORT
 
+RUN <<`
+set -e
+apt-get update
+apt-get install -y curl
+apt-get clean
+`
+
 COPY etc/ /etc/
 
 COPY <<` /usr/share/nginx/html/index.html

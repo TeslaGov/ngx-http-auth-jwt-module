@@ -1,5 +1,6 @@
-services:
+name: ngx-http-auth-jwt-test
 
+services:
   nginx:
     container_name: ${TEST_CONTAINER_NAME_PREFIX:?required}-nginx
     build:
