@@ -31,7 +31,7 @@ run_test () {
     local response=
     local testNum="${GRAY}${NUM_TESTS}${NC}\t"
 
-    while getopts "n:asp:r:c:x:l:" option; do
+    while getopts "n:asp:r:c:x:" option; do
       case $option in
         n)
           name=$OPTARG;;
