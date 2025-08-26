@@ -77,7 +77,7 @@ run_test () {
       fi
 
       if [ "${okay}" == '1' ] && [ "${expectedResponseRegex}" != "" ] && ! [[ "${response}" =~ ${expectedResponseRegex} ]]; then
-        printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex//%/%%}\n\tactual:${reponse:-""}"
+        printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex//%/%%}\n\tactual:${response:-""}"
         NUM_FAILED=$((${NUM_FAILED} + 1))
         okay=0
       fi
