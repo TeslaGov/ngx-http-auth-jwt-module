@@ -1,5 +1,6 @@
-services:
+name: ngx-http-auth-jwt-test
 
+services:
   nginx:
     container_name: ${TEST_CONTAINER_NAME_PREFIX:?required}-nginx
     build:
@@ -10,8 +11,14 @@ services:
       args:
         BASE_IMAGE: ${FULL_IMAGE_NAME}:${NGINX_VERSION:?required}
     platform: linux/amd64
+    pull_policy: always
     logging:
       driver: ${LOG_DRIVER:-json-file}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://nginx:${PORT:-8000}/ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   runner:
     container_name: ${TEST_CONTAINER_NAME_PREFIX:?required}-runner
@@ -21,5 +28,7 @@ services:
       platforms:
         - linux/amd64
     platform: linux/amd64
+    pull_policy: always
     depends_on:
-      - nginx
+      nginx:
+        condition: service_healthy
