@@ -355,7 +355,7 @@ static ngx_int_t get_jwt_var_claim(ngx_http_request_t *r, ngx_http_variable_valu
 
   ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "getting jwt var claim for var at index %l", *claim_idx);
 
-  if (ctx == NULL)
+  if (ctx == NULL || ctx->validation_status != NGX_OK)
   {
     ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "no module context found while getting jwt value");
 

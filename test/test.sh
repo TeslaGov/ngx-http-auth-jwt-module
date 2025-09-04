@@ -341,8 +341,13 @@ main() {
            -c 200 \
            -r 'sub: some-long-uuid$' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+  
+  run_test -n 'fails gracefully when extracting single claim as var with no JWT, auth jwt enabled' \
+           -p '/secure/extract-claim/body/sub' \
+           -c 200 \
+           -r 'sub: '
 
-  run_test -n 'fails gracefully when extracting single claim as var with no JWT' \
+  run_test -n 'fails gracefully when extracting single claim as var with no JWT, auth jwt disbaled' \
            -p '/unsecure/extract-claim/body/sub' \
            -c 200 \
            -r 'sub: '
