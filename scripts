@@ -228,7 +228,7 @@ test() {
 
   docker compose \
     -p ${TEST_CONTAINER_NAME_PREFIX} \
-    -f ${TEST_COMPOSE_FILE} up
+    -f ${TEST_COMPOSE_FILE} up --abort-on-container-exit --exit-code-from runner
 }
 
 test_cleanup() {
