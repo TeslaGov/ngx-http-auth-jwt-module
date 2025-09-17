@@ -111,155 +111,155 @@ main() {
 
   run_test -n 'when auth disabled, should return 200' \
            -p '/' \
-           -c '200'
+           -c 200
 
   run_test -n '[SSL] when auth disabled, should return 200' \
            -s \
            -p '/' \
-           -c '200'
+           -c 200
   
   run_test -n 'when auth enabled with default algorithm and no JWT in Authorization header, returns 302' \
            -p '/secure/auth-header/default' \
-           -c '302'
+           -c 302
   
   run_test -n '[SSL] when auth enabled with default algorithm and no JWT in Authorization header, returns 302' \
            -s \
            -p '/secure/auth-header/default' \
-           -c '302'
+           -c 302
 
   run_test -n 'when auth enabled with default algorithm with no redirect and Authorization header missing Bearer, should return 200' \
            -p '/secure/auth-header/default/no-redirect' \
-           -c '200' \
+           -c 200 \
            -x "--header \"Authorization: ${JWT_HS256_VALID}\""
 
   run_test -n 'when auth enabled with default algorithm with no redirect and Authorization header with Bearer, should return 200' \
            -p '/secure/auth-header/default/no-redirect' \
-           -c '200' \
+           -c 200 \
            -x "--header \"Authorization: Bearer ${JWT_HS256_VALID}\""
 
   run_test -n 'when auth enabled with Authorization header with Bearer, should keep header intact' \
            -p '/secure/auth-header/default/proxy-header' \
-           -c '200' \
+           -c 200 \
            -r "< Test-Authorization: Bearer ${JWT_HS256_VALID}" \
            -x "--header \"Authorization: Bearer ${JWT_HS256_VALID}\""
 
   run_test -n 'when auth enabled with Authorization header with Bearer, lower-case "bearer" should be accepted' \
            -p '/secure/auth-header/default/proxy-header' \
-           -c '200' \
+           -c 200 \
            -r "< Test-Authorization: bearer ${JWT_HS256_VALID}" \
            -x "--header \"Authorization: bearer ${JWT_HS256_VALID}\""
 
   run_test -n 'when auth enabled with default algorithm and no JWT cookie, returns 302' \
            -p '/secure/cookie/default' \
-           -c '302'
+           -c 302
 
   run_test -n 'when auth enabled with default algorithm with no redirect and no JWT cookie, should return 401' \
            -p '/secure/cookie/default/no-redirect' \
-           -c '401'
+           -c 401
 
   run_test -n 'when auth enabled with default algorithm and valid JWT cookie, returns 200' \
            -p '/secure/cookie/default' \
-           -c '200' \
+           -c 200 \
            -x "--cookie jwt=${JWT_HS256_VALID}"
 
   run_test -n 'when auth enabled with default algorithm and valid JWT cookie with no sub, returns 200' \
            -p '/secure/cookie/default' \
-           -c '200' \
+           -c 200 \
            -x ' --cookie "jwt=${JWT_HS256_MISSING_SUB}"'
 
   run_test -n 'when auth enabled with default algorithm and valid JWT cookie with no sub when sub validated, returns 302' \
            -p '/secure/cookie/default/validate-sub' \
-           -c '302' \
+           -c 302 \
            -x ' --cookie "jwt=${JWT_HS256_MISSING_SUB}"'
 
   run_test -n 'when auth enabled with default algorithm and valid JWT cookie with no email, returns 200' \
            -p '/secure/cookie/default' \
-           -c '200' \
+           -c 200 \
            -x ' --cookie "jwt=${JWT_HS256_MISSING_EMAIL}"'
 
   run_test -n 'when auth enabled with HS256 algorithm and valid JWT cookie, returns 200' \
            -p '/secure/cookie/hs256' \
-           -c '200' \
+           -c 200 \
            -x '--cookie "jwt=${JWT_HS256_VALID}"'
 
   run_test -n 'when auth enabled with HS384 algorithm and valid JWT cookie, returns 200' \
            -p '/secure/cookie/hs384' \
-           -c '200' \
+           -c 200 \
            -x '--cookie "jwt=${JWT_HS384_VALID}"'
 
   run_test -n 'when auth enabled with HS512 algorithm and valid JWT cookie, returns 200' \
            -p '/secure/cookie/hs512' \
-           -c '200' \
+           -c 200 \
            -x '--cookie "jwt=${JWT_HS512_VALID}"'
 
   run_test -n 'when auth enabled with RS256 algorithm and valid JWT cookie, returns 200' \
            -p '/secure/cookie/rs256' \
-           -c '200' \
+           -c 200 \
            -x ' --cookie "jwt=${JWT_RS256_VALID}"'
 
   run_test -n 'when auth enabled with ES256 algorithm and valid JWT cookie, returns 200' \
            -p '/secure/cookie/es256' \
-           -c '200' \
+           -c 200 \
            -x ' --cookie "jwt=${JWT_ES256_VALID}"'
 
   run_test -n 'when auth enabled with ES384 algorithm and valid JWT cookie, returns 200' \
            -p '/secure/cookie/es384' \
-           -c '200' \
+           -c 200 \
            -x ' --cookie "jwt=${JWT_ES384_VALID}"'
 
   run_test -n 'when auth enabled with ES512 algorithm and valid JWT cookie, returns 200' \
            -p '/secure/cookie/es512' \
-           -c '200' \
+           -c 200 \
            -x ' --cookie "jwt=${JWT_ES512_VALID}"'
 
   run_test -n 'when auth enabled with RS256 algorithm via file and valid JWT in Authorization header, returns 200' \
            -p '/secure/auth-header/rs256/file' \
-           -c '200' \
+           -c 200 \
            -x '--header "Authorization: Bearer ${JWT_RS256_VALID}"'
 
   run_test -n 'when auth enabled with RS256 algorithm via file and invalid JWT in Authorization header, returns 401' \
            -p '/secure/auth-header/rs256/file' \
-           -c '302' \
+           -c 302 \
            -x '--header "Authorization: Bearer ${JWT_RS256_INVALID}"'
 
   run_test -n 'when auth enabled with RS384 algorithm via file and valid JWT in Authorization header, returns 200' \
            -p '/secure/auth-header/rs384/file' \
-           -c '200' \
+           -c 200 \
            -x '--header "Authorization: Bearer ${JWT_RS256_VALID}"'
 
   run_test -n 'when auth enabled with RS512 algorithm via file and valid JWT in Authorization header, returns 200' \
            -p '/secure/auth-header/rs512/file' \
-           -c '200' \
+           -c 200 \
            -x '--header "Authorization: Bearer ${JWT_RS256_VALID}"'
 
   run_test -n 'when auth enabled with ES256 algorithm via file and valid JWT in Authorization header, returns 200' \
            -p '/secure/auth-header/es256/file' \
-           -c '200' \
+           -c 200 \
            -x '--header "Authorization: Bearer ${JWT_ES256_VALID}"'
 
   run_test -n 'when auth enabled with ES256 algorithm via file and invalid JWT in Authorization header, returns 401' \
            -p '/secure/auth-header/es256/file' \
-           -c '302' \
+           -c 302 \
            -x '--header "Authorization: Bearer ${JWT_ES256_INVALID}"'
 
   run_test -n 'when auth enabled with ES384 algorithm via file and valid JWT in Authorization header, returns 200' \
            -p '/secure/auth-header/es384/file' \
-           -c '200' \
+           -c 200 \
            -x '--header "Authorization: Bearer ${JWT_ES384_VALID}"'
 
   run_test -n 'when auth enabled with ES512 algorithm via file and valid JWT in Authorization header, returns 200' \
            -p '/secure/auth-header/es512/file' \
-           -c '200' \
+           -c 200 \
            -x '--header "Authorization: Bearer ${JWT_ES512_VALID}"'
 
   run_test -n 'when auth enabled with HS256 algorithm and valid JWT in custom header without bearer, returns 200' \
            -p '/secure/custom-header/hs256/' \
-           -c '200' \
+           -c 200 \
            -x '--header "Auth-Token: ${JWT_HS256_VALID}"'
 
   run_test -n 'when auth enabled with HS256 algorithm and valid JWT in custom header with bearer, returns 200' \
            -p '/secure/custom-header/hs256/' \
-           -c '200' \
+           -c 200 \
            -x '--header "Auth-Token: Bearer ${JWT_HS256_VALID}"'
 
   run_test -n 'extracts single claim to request variable' \
@@ -352,7 +352,7 @@ main() {
 
   run_test -n 'returns 302 if auth enabled and no JWT provided' \
            -p '/return-url' \
-           -c '302'
+           -c 302
 
   run_test -n 'redirects to login if auth enabled and no JWT provided' \
            -p '/return-url' \
