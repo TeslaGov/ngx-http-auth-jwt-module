@@ -207,13 +207,14 @@ static void *create_conf(ngx_conf_t *cf)
   else
   {
     // ngx_str_t fields are initialized by the ngx_palloc call above -- only need to init flags and arrays here
+    conf->enabled_var = NULL;
     conf->redirect = NGX_CONF_UNSET;
     conf->validate_sub = NGX_CONF_UNSET;
     conf->extract_var_claims = NULL;
     conf->extract_request_claims = NULL;
     conf->extract_response_claims = NULL;
     conf->use_keyfile = NGX_CONF_UNSET;
-    conf->enabled_var = NULL;
+
     return conf;
   }
 }
@@ -236,6 +237,7 @@ static char *merge_conf(ngx_conf_t *cf, void *parent, void *child)
   if (conf->enabled_var == NULL) {
     conf->enabled_var = prev->enabled_var;
   }
+
   ngx_conf_merge_off_value(conf->redirect, prev->redirect, 0);
   ngx_conf_merge_off_value(conf->use_keyfile, prev->use_keyfile, 0);
 
@@ -453,109 +455,116 @@ static auth_jwt_ctx_t *get_request_jwt_ctx(ngx_http_request_t *r)
   if (jwtcf->key.len == 0 && jwtcf->keyfile_path.len == 0) {
     return NULL;
   }
+  else {
+    ngx_int_t enabled = 1;
 
-  ngx_int_t enabled = 1;
-  if (jwtcf->enabled_var != NULL) {
-    ngx_str_t cv;
-    if (ngx_http_complex_value(r, jwtcf->enabled_var, &cv) == NGX_OK && cv.len > 0) {
-      if (ngx_strncmp(cv.data, "off", 3) == 0) {
-        enabled = 0;
+    if (jwtcf->enabled_var != NULL) {
+      ngx_str_t cv;
+      if (ngx_http_complex_value(r, jwtcf->enabled_var, &cv) == NGX_OK && cv.len > 0) {
+        if (ngx_strncmp(cv.data, "off", 3) == 0) {
+          enabled = 0;
+        }
       }
     }
-  }
-  if (!enabled)
-  {
-    return NULL;
-  }
 
-  auth_jwt_ctx_t *ctx = get_or_init_jwt_module_ctx(r, jwtcf);
+    if (!enabled) {
+      return NULL;
+    }
+    else {
+      auth_jwt_ctx_t *ctx = get_or_init_jwt_module_ctx(r, jwtcf);
 
-  if (ctx == NULL)
-  {
-    return NULL;
-  }
-  else if (ctx->validation_status != NGX_AGAIN)
-  {
-    // we already validated and extacted everything we care about, so we just return the already-complete context
-    return ctx;
-  }
-
-  char *jwtPtr = get_jwt(r, jwtcf->jwt_location);
-
-  if (jwtPtr == NULL)
-  {
-    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a JWT");
-    ctx->validation_status = NGX_ERROR;
-    return ctx;
-  }
-  else
-  {
-    ngx_str_t algorithm = jwtcf->algorithm;
-    int keyLength;
-    u_char *key;
-    jwt_t *jwt = NULL;
-
-    if (algorithm.len == 0 || (algorithm.len == 5 && ngx_strncmp(algorithm.data, "HS", 2) == 0))
-    {
-      keyLength = jwtcf->key.len / 2;
-      key = ngx_palloc(r->pool, keyLength);
-
-      if (0 != hex_to_binary((char *)jwtcf->key.data, key, jwtcf->key.len))
+      if (ctx == NULL) {
+        return NULL;
+      }
+      else if (ctx->validation_status != NGX_AGAIN)
       {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to turn hex key into binary");
-        ctx->validation_status = NGX_ERROR;
+        // we already validated and extacted everything we care about, so we just return the already-complete context
         return ctx;
       }
-    }
-    else if (algorithm.len == 5 && (ngx_strncmp(algorithm.data, "RS", 2) == 0 || ngx_strncmp(algorithm.data, "ES", 2) == 0))
-    {
-      if (jwtcf->use_keyfile == 1)
-      {
-        keyLength = jwtcf->_keyfile.len;
-        key = (u_char *)jwtcf->_keyfile.data;
-      }
-      else
-      {
-        keyLength = jwtcf->key.len;
-        key = jwtcf->key.data;
-      }
-    }
-    else
-    {
-      ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "unsupported algorithm %s", algorithm);
-      ctx->validation_status = NGX_ERROR;
-      return ctx;
-    }
+      else {
+        char *jwtPtr = get_jwt(r, jwtcf->jwt_location);
 
-    if (jwt_decode(&jwt, jwtPtr, key, keyLength) != 0 || !jwt)
-    {
-      ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to parse JWT");
-      ctx->validation_status = NGX_ERROR;
-    }
-    else if (validate_alg(jwtcf, jwt) != 0)
-    {
-      ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "invalid algorithm specified");
-      ctx->validation_status = NGX_ERROR;
-    }
-    else if (validate_exp(jwtcf, jwt) != 0)
-    {
-      ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the JWT has expired");
-      ctx->validation_status = NGX_ERROR;
-    }
-    else if (validate_sub(jwtcf, jwt) != 0)
-    {
-      ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the JWT does not contain a subject");
-      ctx->validation_status = NGX_ERROR;
-    }
-    else
-    {
-      extract_request_claims(r, jwtcf, jwt);
-      extract_response_claims(r, jwtcf, jwt);
-      ctx->validation_status = extract_var_claims(r, jwtcf, jwt, ctx);
-    }
+        if (jwtPtr == NULL)
+        {
+          ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a JWT");
+          ctx->validation_status = NGX_ERROR;
 
-    jwt_free(jwt);
-    return ctx;
+          return ctx;
+        }
+        else
+        {
+          ngx_str_t algorithm = jwtcf->algorithm;
+          int keyLength;
+          u_char *key;
+          jwt_t *jwt = NULL;
+
+          if (algorithm.len == 0 || (algorithm.len == 5 && ngx_strncmp(algorithm.data, "HS", 2) == 0))
+          {
+            keyLength = jwtcf->key.len / 2;
+            key = ngx_palloc(r->pool, keyLength);
+
+            if (0 != hex_to_binary((char *)jwtcf->key.data, key, jwtcf->key.len))
+            {
+              ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to turn hex key into binary");
+              ctx->validation_status = NGX_ERROR;
+
+              return ctx;
+            }
+          }
+          else if (algorithm.len == 5 && (ngx_strncmp(algorithm.data, "RS", 2) == 0 || ngx_strncmp(algorithm.data, "ES", 2) == 0))
+          {
+            if (jwtcf->use_keyfile == 1)
+            {
+              keyLength = jwtcf->_keyfile.len;
+              key = (u_char *)jwtcf->_keyfile.data;
+            }
+            else
+            {
+              keyLength = jwtcf->key.len;
+              key = jwtcf->key.data;
+            }
+          }
+          else
+          {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "unsupported algorithm %s", algorithm);
+            ctx->validation_status = NGX_ERROR;
+
+            return ctx;
+          }
+          
+          if (jwt_decode(&jwt, jwtPtr, key, keyLength) != 0 || !jwt)
+          {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to parse JWT");
+            ctx->validation_status = NGX_ERROR;
+          }
+          else if (validate_alg(jwtcf, jwt) != 0)
+          {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "invalid algorithm specified");
+            ctx->validation_status = NGX_ERROR;
+          }
+          else if (validate_exp(jwtcf, jwt) != 0)
+          {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the JWT has expired");
+            ctx->validation_status = NGX_ERROR;
+          }
+          else if (validate_sub(jwtcf, jwt) != 0)
+          {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "the JWT does not contain a subject");
+            ctx->validation_status = NGX_ERROR;
+          }
+          else
+          {
+            extract_request_claims(r, jwtcf, jwt);
+            extract_response_claims(r, jwtcf, jwt);
+            ctx->validation_status = extract_var_claims(r, jwtcf, jwt, ctx);
+          }
+
+          jwt_free(jwt);
+
+          return ctx;
+        }
+      }
+    }
   }
 }
 
