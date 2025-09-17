@@ -1,4 +1,6 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
+
+set -eu
 
 MAGENTA='\u001b[35m'
 BLUE='\033[0;34m'
@@ -190,6 +192,7 @@ build_test() {
     --build-arg RUNNER_BASE_IMAGE=${runnerBaseImage} \
     --build-arg PORT=${port} \
     --build-arg SSL_PORT=${sslPort} \
+    --build-arg platform="linux/amd64" \
      ${dockerArgs}
 }
 
@@ -217,34 +220,15 @@ test() {
   trap 'test_cleanup' 0
 
   printf "${MAGENTA}Running tests...${NC}\n"
+  printf "\n"
+  printf "Executing tests with the following options:\n"
+  printf "  SSL Version:     ${SSL_VERSION}\n"
+  printf "  LIBJWT Version:  ${LIBJWT_VERSION}\n"
+  printf "  NGINX Version:   ${NGINX_VERSION}\n"
+
   docker compose \
     -p ${TEST_CONTAINER_NAME_PREFIX} \
-    -f ${TEST_COMPOSE_FILE} up \
-    --no-start
-
-  test_now
-}
-
-test_now() {
-  nginxContainerName="${TEST_CONTAINER_NAME_PREFIX}-nginx"
-  runnerContainerName="${TEST_CONTAINER_NAME_PREFIX}-runner"
-
-  echo
-  echo "Executing tests with the following options:"
-  echo "  SSL Version:     ${SSL_VERSION}"
-  echo "  LIBJWT Version:  ${LIBJWT_VERSION}"
-  echo "  NGINX Version:   ${NGINX_VERSION}"
-
-  docker start ${nginxContainerName}
-
-  if [ "$(docker container inspect -f '{{.State.Running}}' ${nginxContainerName})" != "true" ]; then
-    printf "${RED}Failed to start container \"${nginxContainerName}\". See logs below:\n"
-    docker logs ${nginxContainerName}
-    printf "${NC}\n"
-    return 1
-  fi
-
-  docker start -a ${runnerContainerName}
+    -f ${TEST_COMPOSE_FILE} up --abort-on-container-exit --exit-code-from runner
 }
 
 test_cleanup() {
@@ -258,9 +242,16 @@ get_port() {
   endPort=$((startPort + 100))
 
   for p in $(seq ${startPort} ${endPort}); do
-    if ! ss -ln | grep -q ":${p} "; then
-      echo ${p}
-      break
+    if [ "$(uname)" == "Darwin" ]; then
+      if ! lsof -i -P | grep LISTEN | grep -q ":${p} "; then
+        echo ${p}
+        break
+      fi
+    elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+      if ! ss -ln | grep -q ":${p} "; then
+        echo ${p}
+        break
+      fi
     fi
   done
 }

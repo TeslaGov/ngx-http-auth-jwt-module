@@ -129,19 +129,6 @@ RUN <<`
 	useradd -g nginx nginx
 `
 
-# RUN <<`
-#   set -e
-#   curl https://nginx.org/keys/nginx_signing.key | gpg --dearmor > /usr/share/keyrings/nginx-archive-keyring.gpg
-#   printf "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/debian `lsb_release -cs` nginx\n" > /etc/apt/sources.list.d/nginx.list
-#   printf "Package: *\nPin: origin nginx.org\nPin: release o=nginx\nPin-Priority: 900\n" > /etc/apt/preferences.d/99nginx
-# `
-
-# RUN <<`
-#   set -e
-#   apt-get update
-#   apt-get install -y nginx
-# `
-
 COPY <<` /etc/nginx/nginx.conf
 daemon off;
 user nginx;

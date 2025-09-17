@@ -15,7 +15,7 @@ RUN <<`
 WORKDIR ${SRC_DIR}
 RUN <<`
     set -ex
-    curl --silent -LO https://www.openssl.org/source/openssl-${SSL_VERSION}.tar.gz
+    curl --silent --location -O https://github.com/openssl/openssl/releases/download/openssl-${SSL_VERSION}/openssl-${SSL_VERSION}.tar.gz
     tar -xf openssl-${SSL_VERSION}.tar.gz --strip-components=1
 `
 RUN ./config --prefix=${OUT_DIR} --openssldir=${OUT_DIR} shared zlib

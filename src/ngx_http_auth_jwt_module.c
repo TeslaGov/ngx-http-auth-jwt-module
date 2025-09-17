@@ -340,10 +340,12 @@ static char *merge_extract_var_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *
 
 static ngx_int_t get_jwt_var_claim(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data)
 {
-  ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "getting jwt value for var index %l", *((ngx_uint_t *)data));
+  ngx_uint_t *claim_idx = (ngx_uint_t *)data;
   auth_jwt_ctx_t *ctx = get_request_jwt_ctx(r);
 
-  if (ctx == NULL)
+  ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "getting jwt var claim for var at index %l", *claim_idx);
+
+  if (ctx == NULL || ctx->validation_status != NGX_OK)
   {
     ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "no module context found while getting jwt value");
 
@@ -351,7 +353,6 @@ static ngx_int_t get_jwt_var_claim(ngx_http_request_t *r, ngx_http_variable_valu
   }
   else
   {
-    ngx_uint_t *claim_idx = (ngx_uint_t *)data;
     ngx_str_t claim_value = ((ngx_str_t *)ctx->claim_values->elts)[*claim_idx];
 
     v->valid = 1;

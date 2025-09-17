@@ -1,4 +1,6 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
+
+set -u
 
 # set a test # here to execute only that test and output additional info
 DEBUG=
@@ -50,19 +52,21 @@ run_test () {
       esac
     done
 
+    printf "\n${testNum}"
+
     curlCommand="curl -skv ${scheme}://nginx:${port}${path} -H 'Cache-Control: no-cache' ${extraCurlOpts} 2>&1"
+    trap "" EXIT
     response=$(eval "${curlCommand}")
     exitCode=$?
-    
-    printf "\n${testNum}"
 
     if [ "${exitCode}" -ne "0" ]; then
       printf "${RED}${name} -- unexpected exit code from cURL\n\tcURL Exit Code: ${exitCode}";
       NUM_FAILED=$((${NUM_FAILED} + 1));
+      exitCode=
     else
       local okay=1
 
-      if [ "${expectedCode}" != "" ]; then
+      if [[ -n "${expectedCode}" ]]; then
         local responseCode=$(echo "${response}" | grep -Eo 'HTTP/1.1 ([0-9]{3})' | awk '{print $2}')
 
         if [ "${expectedCode}" != "${responseCode}" ]; then
@@ -71,13 +75,13 @@ run_test () {
           okay=0
         fi
       fi
-      
+
       if [ "${okay}" == '1' ] && [ "${expectedResponseRegex}" != "" ] && ! [[ "${response}" =~ ${expectedResponseRegex} ]]; then
-        printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex//%/%%}"
+        printf "${RED}${name} -- regex not found in response\n\tPath: ${path}\n\tRegEx: ${expectedResponseRegex//%/%%}\n\tactual:${response:-""}"
         NUM_FAILED=$((${NUM_FAILED} + 1))
         okay=0
       fi
-      
+
       if [ "${okay}" == '1' ]; then
         printf "${GREEN}${name}";
       fi
@@ -117,11 +121,11 @@ main() {
            -s \
            -p '/' \
            -c 200
-  
+
   run_test -n 'when auth enabled with default algorithm and no JWT in Authorization header, returns 302' \
            -p '/secure/auth-header/default' \
            -c 302
-  
+
   run_test -n '[SSL] when auth enabled with default algorithm and no JWT in Authorization header, returns 302' \
            -s \
            -p '/secure/auth-header/default' \
@@ -332,13 +336,23 @@ main() {
            -c 401 \
            -x '--header "Authorization: Bearer ${JWT_HS256_MISSING_SUB}"'
 
-  run_test -n 'extracts single claim to response body' \
+  run_test -n 'extracts single claim as var' \
            -p '/secure/extract-claim/body/sub' \
            -c 200 \
            -r 'sub: some-long-uuid$' \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+  
+  run_test -n 'fails gracefully when extracting single claim as var with no JWT, auth jwt enabled' \
+           -p '/secure/extract-claim/body/sub' \
+           -c 200 \
+           -r 'sub: '
 
-  run_test -n 'extracts multiple claims to response body' \
+  run_test -n 'fails gracefully when extracting single claim as var with no JWT, auth jwt disbaled' \
+           -p '/unsecure/extract-claim/body/sub' \
+           -c 200 \
+           -r 'sub: '
+
+  run_test -n 'extracts multiple claims as vars' \
            -p '/secure/extract-claim/body/multiple' \
            -c 200 \
            -r 'you are: hello  world$' \
