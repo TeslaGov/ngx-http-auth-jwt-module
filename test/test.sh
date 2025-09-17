@@ -370,6 +370,26 @@ main() {
            -p '/return-url?test=123' \
            -r '< Location: https://example\.com/login\?return_url=http://nginx.*/return-url%3Ftest=123'
 
+  run_test -n 'access_log extract valid sub' \
+           -p '/log' \
+           -c 200 \
+           -r 'Log extract test sub: some-long-uuid$' \
+           -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
+
+  run_test -n 'auth_jwt_enabled supports variable (on)' \
+           -p '/enabled/variable' \
+           -c 401 \
+           -x '--header "Test-Auth-Enabled: on"'
+
+  run_test -n 'auth_jwt_enabled supports variable (off)' \
+           -p '/enabled/variable' \
+           -c 200 \
+           -x '--header "Test-Auth-Enabled: off"'
+
+  run_test -n 'auth_jwt_enabled supports variable (unset)' \
+           -p '/enabled/variable' \
+           -c 401
+
   if [[ "${NUM_FAILED}" = '0' ]]; then
     printf "\nRan ${NUM_TESTS} tests successfully (skipped ${NUM_SKIPPED}).\n"
     return 0
