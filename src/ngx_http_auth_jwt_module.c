@@ -22,6 +22,23 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+// Structure to hold a parsed JWK key
+typedef struct {
+  ngx_str_t kid;       // Key ID
+  ngx_str_t kty;       // Key type (oct, RSA, EC)
+  ngx_str_t alg;       // Algorithm
+  ngx_str_t k;         // Symmetric key (for oct)
+  ngx_str_t n;         // RSA modulus
+  ngx_str_t e;         // RSA exponent
+  ngx_str_t pem_key;   // Converted PEM key for RSA/EC
+} auth_jwt_key_t;
+
+// Structure to hold multiple JWK keys
+typedef struct {
+  auth_jwt_key_t *keys;
+  ngx_uint_t nkeys;
+} auth_jwt_jwks_t;
+
 typedef struct
 {
   ngx_str_t loginurl;
@@ -37,6 +54,12 @@ typedef struct
   ngx_str_t keyfile_path;
   ngx_flag_t use_keyfile;
   ngx_str_t _keyfile;
+  ngx_str_t key_file;  // Path to JWK/JWKS file
+  ngx_flag_t key_file_missing_skip;  // Skip auth if key file is missing (on/off), default: off
+  ngx_int_t key_file_missing_error;  // HTTP error code when file not found (only used if skip is off)
+  ngx_str_t key_file_missing_message;  // Optional error message when file not found
+  ngx_str_t key_file_missing_content_type;  // Optional content-type for error response
+  auth_jwt_jwks_t *jwks;  // Parsed JWKS
 } auth_jwt_conf_t;
 
 typedef struct
@@ -63,7 +86,11 @@ static void extract_request_claims(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf
 static void extract_response_claims(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf, jwt_t *jwt);
 static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf);
 static ngx_int_t load_public_key(ngx_conf_t *cf, auth_jwt_conf_t *conf);
+static ngx_int_t load_jwk_file(ngx_conf_t *cf, auth_jwt_conf_t *conf);
+static auth_jwt_key_t *find_jwk_key(auth_jwt_conf_t *jwtcf, const char *kid);
 static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location);
+static ngx_int_t base64url_decode(ngx_pool_t *pool, ngx_str_t *src, ngx_str_t *dst);
+static char *set_key_file_missing_error(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 static const char *JWT_HEADER_PREFIX = "JWT-";
 
@@ -152,6 +179,27 @@ static ngx_command_t auth_jwt_directives[] = {
      offsetof(auth_jwt_conf_t, use_keyfile),
      NULL},
 
+    {ngx_string("auth_jwt_key_file"),
+     NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+     ngx_conf_set_str_slot,
+     NGX_HTTP_LOC_CONF_OFFSET,
+     offsetof(auth_jwt_conf_t, key_file),
+     NULL},
+
+    {ngx_string("auth_jwt_key_file_missing_skip"),
+     NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_FLAG,
+     ngx_conf_set_flag_slot,
+     NGX_HTTP_LOC_CONF_OFFSET,
+     offsetof(auth_jwt_conf_t, key_file_missing_skip),
+     NULL},
+
+    {ngx_string("auth_jwt_key_file_missing_error"),
+     NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE123,
+     set_key_file_missing_error,
+     NGX_HTTP_LOC_CONF_OFFSET,
+     0,
+     NULL},
+
     ngx_null_command};
 
 static ngx_http_module_t auth_jwt_context = {
@@ -214,6 +262,9 @@ static void *create_conf(ngx_conf_t *cf)
     conf->extract_request_claims = NULL;
     conf->extract_response_claims = NULL;
     conf->use_keyfile = NGX_CONF_UNSET;
+    conf->jwks = NULL;
+    conf->key_file_missing_skip = NGX_CONF_UNSET;
+    conf->key_file_missing_error = NGX_CONF_UNSET;
 
     return conf;
   }
@@ -240,11 +291,21 @@ static char *merge_conf(ngx_conf_t *cf, void *parent, void *child)
 
   ngx_conf_merge_off_value(conf->redirect, prev->redirect, 0);
   ngx_conf_merge_off_value(conf->use_keyfile, prev->use_keyfile, 0);
+  ngx_conf_merge_str_value(conf->key_file, prev->key_file, "");
+  ngx_conf_merge_off_value(conf->key_file_missing_skip, prev->key_file_missing_skip, 0);  // Default: off (don't skip)
+  ngx_conf_merge_value(conf->key_file_missing_error, prev->key_file_missing_error, NGX_HTTP_UNAUTHORIZED);  // Default: 401
+  ngx_conf_merge_str_value(conf->key_file_missing_message, prev->key_file_missing_message, "");
+  ngx_conf_merge_str_value(conf->key_file_missing_content_type, prev->key_file_missing_content_type, "");
+
+  // Inherit JWKS from parent if not set
+  if (conf->jwks == NULL) {
+    conf->jwks = prev->jwks;
+  }
 
   // If the usage of the keyfile is specified, check if the key_path is also configured
   if (conf->use_keyfile == 1)
   {
-    if (ngx_strcmp(conf->keyfile_path.data, "") != 0)
+    if (conf->keyfile_path.len > 0)
     {
       if (load_public_key(cf, conf) != NGX_OK)
       {
@@ -256,6 +317,24 @@ static char *merge_conf(ngx_conf_t *cf, void *parent, void *child)
       ngx_log_error(NGX_LOG_ERR, cf->log, 0, "keyfile_path not specified");
 
       return NGX_CONF_ERROR;
+    }
+  }
+
+  // If auth_jwt_key_file is specified, try to load and parse the JWK/JWKS file
+  if (conf->key_file.len > 0 && conf->jwks == NULL)
+  {
+    ngx_int_t rc = load_jwk_file(cf, conf);
+    if (rc != NGX_OK)
+    {
+      // File not loaded - log warning, will handle at runtime based on key_file_missing_skip
+      if (conf->key_file_missing_skip == 1)
+      {
+        ngx_log_error(NGX_LOG_WARN, cf->log, 0, "JWK file not loaded, will skip auth at runtime per auth_jwt_key_file_missing_skip=on");
+      }
+      else
+      {
+        ngx_log_error(NGX_LOG_WARN, cf->log, 0, "JWK file not loaded, will return %d at runtime per auth_jwt_key_file_missing_error", conf->key_file_missing_error);
+      }
     }
   }
 
@@ -280,6 +359,11 @@ static char *merge_extract_var_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *
   {
     // add this claim's name to the config struct
     ngx_str_t *element = ngx_array_push(claims);
+
+    if (element == NULL)
+    {
+      return NGX_CONF_ERROR;
+    }
 
     *element = values[i];
 
@@ -351,6 +435,20 @@ static ngx_int_t get_jwt_var_claim(ngx_http_request_t *r, ngx_http_variable_valu
 
     return NGX_ERROR;
   }
+  else if (ctx->claim_values == NULL || ctx->claim_values->nelts == 0 ||
+           *claim_idx >= ctx->claim_values->nelts)
+  {
+    // No claims extracted (e.g., auth_jwt_key_file_missing_skip=on with no key file)
+    ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "no claims available for jwt var");
+
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 1;
+    v->len = 0;
+    v->data = NULL;
+
+    return NGX_OK;
+  }
   else
   {
     ngx_str_t claim_value = ((ngx_str_t *)ctx->claim_values->elts)[*claim_idx];
@@ -373,6 +471,11 @@ static char *merge_extract_claims(ngx_conf_t *cf, ngx_array_t *claims)
   for (ngx_uint_t i = 1; i < cf->args->nelts; ++i)
   {
     ngx_str_t *element = ngx_array_push(claims);
+
+    if (element == NULL)
+    {
+      return NGX_CONF_ERROR;
+    }
 
     *element = values[i];
   }
@@ -477,10 +580,31 @@ static auth_jwt_ctx_t *get_request_jwt_ctx(ngx_http_request_t *r)
       return ctx;
     }
     else {
+      // Check if key_file was specified but not loaded (handle at runtime)
+      if (jwtcf->key_file.len > 0 && (jwtcf->jwks == NULL || jwtcf->jwks->nkeys == 0))
+      {
+        // Key file is missing at runtime
+        if (jwtcf->key_file_missing_skip == 1)
+        {
+          // Skip authentication
+          ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "JWK file not available, skipping auth per auth_jwt_key_file_missing_skip=on");
+          ctx->validation_status = NGX_OK;
+          return ctx;
+        }
+        else
+        {
+          // Return error code specified by auth_jwt_key_file_missing_error
+          ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JWK file not available, returning %d per auth_jwt_key_file_missing_error", jwtcf->key_file_missing_error);
+          ctx->validation_status = jwtcf->key_file_missing_error;
+          return ctx;
+        }
+      }
+
       char *jwtPtr = get_jwt(r, jwtcf->jwt_location);
 
       if (jwtPtr == NULL)
       {
+        // JWT is required - deny request
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a JWT");
         ctx->validation_status = NGX_ERROR;
 
@@ -493,10 +617,73 @@ static auth_jwt_ctx_t *get_request_jwt_ctx(ngx_http_request_t *r)
         u_char *key;
         jwt_t *jwt = NULL;
 
-        if (algorithm.len == 0 || (algorithm.len == 5 && ngx_strncmp(algorithm.data, "HS", 2) == 0))
+        // Check if we have JWK keys available
+        if (jwtcf->jwks != NULL && jwtcf->jwks->nkeys > 0)
+        {
+          // Use key from JWK file
+          // First, try to find key by kid from JWT header (if present)
+          // For now, use the first key or match by algorithm
+          auth_jwt_key_t *jwk_key = find_jwk_key(jwtcf, NULL);
+
+          if (jwk_key == NULL)
+          {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "no suitable key found in JWK file");
+            ctx->validation_status = NGX_ERROR;
+            return ctx;
+          }
+
+          if (jwk_key->kty.len == 3 && ngx_strncmp(jwk_key->kty.data, "oct", 3) == 0)
+          {
+            // Symmetric key - decode from base64url
+            ngx_str_t decoded_key;
+            if (base64url_decode(r->pool, &jwk_key->k, &decoded_key) != NGX_OK)
+            {
+              ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to decode JWK symmetric key");
+              ctx->validation_status = NGX_ERROR;
+              return ctx;
+            }
+            keyLength = decoded_key.len;
+            key = decoded_key.data;
+          }
+          else if (jwk_key->kty.len == 3 && ngx_strncmp(jwk_key->kty.data, "RSA", 3) == 0)
+          {
+            // RSA key - use PEM key if stored, otherwise error
+            if (jwk_key->pem_key.len > 0)
+            {
+              keyLength = jwk_key->pem_key.len;
+              key = jwk_key->pem_key.data;
+            }
+            else
+            {
+              ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "RSA JWK key requires PEM conversion (not yet supported). Use auth_jwt_keyfile_path for RSA keys.");
+              ctx->validation_status = NGX_ERROR;
+              return ctx;
+            }
+          }
+          else if (jwk_key->kty.len == 2 && ngx_strncmp(jwk_key->kty.data, "EC", 2) == 0)
+          {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "EC JWK key requires PEM conversion (not yet supported). Use auth_jwt_keyfile_path for EC keys.");
+            ctx->validation_status = NGX_ERROR;
+            return ctx;
+          }
+          else
+          {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "unsupported JWK key type: %V", &jwk_key->kty);
+            ctx->validation_status = NGX_ERROR;
+            return ctx;
+          }
+        }
+        else if (algorithm.len == 0 || (algorithm.len == 5 && ngx_strncmp(algorithm.data, "HS", 2) == 0))
         {
           keyLength = jwtcf->key.len / 2;
           key = ngx_palloc(r->pool, keyLength);
+
+          if (key == NULL)
+          {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to allocate memory for key");
+            ctx->validation_status = NGX_ERROR;
+            return ctx;
+          }
 
           if (0 != hex_to_binary((char *)jwtcf->key.data, key, jwtcf->key.len))
           {
@@ -566,8 +753,8 @@ static ngx_int_t handle_request(ngx_http_request_t *r)
 {
   auth_jwt_conf_t *jwtcf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
 
-  // Only activate JWT logic if key or keyfile_path is set
-  if (jwtcf->key.len == 0 && jwtcf->keyfile_path.len == 0) {
+  // Only activate JWT logic if key, keyfile_path, or key_file is set
+  if (jwtcf->key.len == 0 && jwtcf->keyfile_path.len == 0 && jwtcf->key_file.len == 0) {
     return NGX_DECLINED;
   }
 
@@ -597,6 +784,83 @@ static ngx_int_t handle_request(ngx_http_request_t *r)
   else if (ctx->validation_status == NGX_ERROR)
   {
     return redirect(r, jwtcf);
+  }
+  else if (ctx->validation_status >= 301 && ctx->validation_status <= 308 &&
+           ctx->validation_status != 304 && ctx->validation_status != 305 && ctx->validation_status != 306)
+  {
+    // 3xx redirect status code (301, 302, 303, 307, 308)
+    ngx_str_t redirect_url;
+
+    // Use custom URL if provided, otherwise use auth_jwt_loginurl
+    if (jwtcf->key_file_missing_message.len > 0)
+    {
+      redirect_url = jwtcf->key_file_missing_message;
+    }
+    else if (jwtcf->loginurl.len > 0)
+    {
+      redirect_url = jwtcf->loginurl;
+    }
+    else
+    {
+      ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+        "auth_jwt_key_file_missing_error: redirect requested but no URL provided");
+      return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    r->headers_out.location = ngx_list_push(&r->headers_out.headers);
+    if (r->headers_out.location == NULL)
+    {
+      return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    r->headers_out.location->hash = 1;
+    ngx_str_set(&r->headers_out.location->key, "Location");
+    r->headers_out.location->value = redirect_url;
+
+    return ctx->validation_status;
+  }
+  else if (ctx->validation_status >= 400 && ctx->validation_status < 600)
+  {
+    // HTTP error status code - check if we have a custom message to send
+    if (jwtcf->key_file_missing_message.len > 0)
+    {
+      // Send custom error response with message and optional content-type
+      ngx_buf_t *b;
+      ngx_chain_t out;
+
+      r->headers_out.status = ctx->validation_status;
+
+      // Set content type if specified
+      if (jwtcf->key_file_missing_content_type.len > 0)
+      {
+        r->headers_out.content_type = jwtcf->key_file_missing_content_type;
+      }
+      else
+      {
+        ngx_str_set(&r->headers_out.content_type, "text/plain");
+      }
+      r->headers_out.content_type_lowcase = NULL;
+      r->headers_out.content_length_n = jwtcf->key_file_missing_message.len;
+
+      ngx_http_send_header(r);
+
+      b = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
+      if (b == NULL)
+      {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+      }
+
+      b->pos = jwtcf->key_file_missing_message.data;
+      b->last = jwtcf->key_file_missing_message.data + jwtcf->key_file_missing_message.len;
+      b->memory = 1;
+      b->last_buf = 1;
+
+      out.buf = b;
+      out.next = NULL;
+
+      return ngx_http_output_filter(r, &out);
+    }
+    return ctx->validation_status;
   }
   else
   {
@@ -656,10 +920,21 @@ static ngx_int_t extract_var_claims(ngx_http_request_t *r, auth_jwt_conf_t *jwtc
   {
     const ngx_str_t *claimsPtr = claims->elts;
 
-    for (uint i = 0; i < claims->nelts; ++i)
+    for (ngx_uint_t i = 0; i < claims->nelts; ++i)
     {
       const ngx_str_t claim = claimsPtr[i];
-      const char *claimValue = jwt_get_grant(jwt, (char *)claim.data);
+
+      // Create null-terminated claim name for jwt_get_grant
+      u_char *claim_name = ngx_pnalloc(r->pool, claim.len + 1);
+      if (claim_name == NULL)
+      {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to allocate memory for claim name");
+        return NGX_ERROR;
+      }
+      ngx_memcpy(claim_name, claim.data, claim.len);
+      claim_name[claim.len] = '\0';
+
+      const char *claimValue = jwt_get_grant(jwt, (char *)claim_name);
       ngx_str_t value = ngx_string("");
 
       if (claimValue != NULL && strlen(claimValue) > 0)
@@ -667,7 +942,14 @@ static ngx_int_t extract_var_claims(ngx_http_request_t *r, auth_jwt_conf_t *jwtc
         value = char_ptr_to_ngx_str_t(r->pool, claimValue);
       }
 
-      ((ngx_str_t *)ctx->claim_values->elts)[i] = value;
+      // Use ngx_array_push to properly track the number of elements
+      ngx_str_t *element = ngx_array_push(ctx->claim_values);
+      if (element == NULL)
+      {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to push claim value to array");
+        return NGX_ERROR;
+      }
+      *element = value;
       ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "set var %V to JWT claim value %s", &claim, value.data);
     }
 
@@ -681,10 +963,21 @@ static void extract_claims(ngx_http_request_t *r, jwt_t *jwt, ngx_array_t *claim
   {
     const ngx_str_t *claimsPtr = claims->elts;
 
-    for (uint i = 0; i < claims->nelts; ++i)
+    for (ngx_uint_t i = 0; i < claims->nelts; ++i)
     {
       const ngx_str_t claim = claimsPtr[i];
-      const char *value = jwt_get_grant(jwt, (char *)claim.data);
+
+      // Create null-terminated claim name for jwt_get_grant
+      u_char *claim_name = ngx_pnalloc(r->pool, claim.len + 1);
+      if (claim_name == NULL)
+      {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to allocate memory for claim name");
+        return;
+      }
+      ngx_memcpy(claim_name, claim.data, claim.len);
+      claim_name[claim.len] = '\0';
+
+      const char *value = jwt_get_grant(jwt, (char *)claim_name);
 
       if (value != NULL && strlen(value) > 0)
       {
@@ -693,6 +986,11 @@ static void extract_claims(ngx_http_request_t *r, jwt_t *jwt, ngx_array_t *claim
         ngx_str_t claimValue = char_ptr_to_ngx_str_t(r->pool, value);
 
         claimHeader.data = ngx_palloc(r->pool, claimHeaderLen);
+        if (claimHeader.data == NULL)
+        {
+          ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to allocate memory for claim header");
+          return;
+        }
         claimHeader.len = claimHeaderLen;
         ngx_snprintf(claimHeader.data, claimHeaderLen, "%s%V", JWT_HEADER_PREFIX, &claim);
 
@@ -720,7 +1018,7 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
 
     if (r->headers_out.location == NULL)
     {
-      ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+      return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
     r->headers_out.location->hash = 1;
@@ -735,7 +1033,7 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
       ngx_int_t port_variable_hash = ngx_hash_key(port_variable_name.data, port_variable_name.len);
       ngx_http_variable_value_t *port_var = ngx_http_get_variable(r, &port_variable_name, port_variable_hash);
       char *port_str = "";
-      uint port_str_len = 0;
+      ngx_uint_t port_str_len = 0;
       const ngx_str_t server = r->headers_in.server;
       ngx_str_t uri_variable_name = ngx_string("request_uri");
       ngx_int_t uri_variable_hash = ngx_hash_key(uri_variable_name.data, uri_variable_name.len);
@@ -751,6 +1049,10 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
       {
         // ideally we would like the URI with the querystring parameters
         uri.data = ngx_palloc(r->pool, uri_var->len);
+        if (uri.data == NULL)
+        {
+          return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
         uri.len = uri_var->len;
         ngx_memcpy(uri.data, uri_var->data, uri_var->len);
       }
@@ -770,9 +1072,13 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
         if (is_non_default_port)
         {
           port_str = ngx_palloc(r->pool, NGX_INT_T_LEN + 2);
+          if (port_str == NULL)
+          {
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+          }
 
-          ngx_snprintf((u_char *)port_str, sizeof(port_str), ":%d", port_num);
-          port_str_len = strlen(port_str);
+          u_char *end = ngx_snprintf((u_char *)port_str, NGX_INT_T_LEN + 2, ":%ui", port_num);
+          port_str_len = end - (u_char *)port_str;
         }
       }
 
@@ -780,6 +1086,10 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
       // escape the URI
       escaped_len = 2 * ngx_escape_uri(NULL, uri.data, uri.len, NGX_ESCAPE_ARGS) + uri.len;
       uri_escaped.data = ngx_palloc(r->pool, escaped_len);
+      if (uri_escaped.data == NULL)
+      {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+      }
       uri_escaped.len = escaped_len;
       ngx_escape_uri(uri_escaped.data, uri.data, uri.len, NGX_ESCAPE_ARGS);
 
@@ -787,6 +1097,10 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
       r->headers_out.location->value.len = loginlen + 12 + strlen(scheme) + 3 + server.len + port_str_len + uri_escaped.len;
 
       return_url = ngx_palloc(r->pool, r->headers_out.location->value.len);
+      if (return_url == NULL)
+      {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+      }
 
       ngx_memcpy(return_url, jwtcf->loginurl.data, jwtcf->loginurl.len);
       return_url_idx = jwtcf->loginurl.len;
@@ -833,47 +1147,59 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
 // Loads the public key into the location config struct
 static ngx_int_t load_public_key(ngx_conf_t *cf, auth_jwt_conf_t *conf)
 {
-  FILE *keyFile = fopen((const char *)conf->keyfile_path.data, "rb");
+  // Create null-terminated path for fopen
+  u_char *path = ngx_pnalloc(cf->pool, conf->keyfile_path.len + 1);
+  if (path == NULL)
+  {
+    return NGX_ERROR;
+  }
+  ngx_memcpy(path, conf->keyfile_path.data, conf->keyfile_path.len);
+  path[conf->keyfile_path.len] = '\0';
+
+  FILE *keyFile = fopen((const char *)path, "rb");
 
   // Check if file exists or is correctly opened
   if (keyFile == NULL)
   {
-    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to open public key file");
+    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to open public key file: %s", path);
     return NGX_ERROR;
+  }
+
+  long keySize;
+  size_t keySizeRead;
+
+  // Read file length
+  fseek(keyFile, 0, SEEK_END);
+  keySize = ftell(keyFile);
+  fseek(keyFile, 0, SEEK_SET);
+
+  if (keySize <= 0)
+  {
+    fclose(keyFile);
+    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "invalid public key file size of %ld", keySize);
+    return NGX_ERROR;
+  }
+
+  conf->_keyfile.data = ngx_palloc(cf->pool, keySize);
+  if (conf->_keyfile.data == NULL)
+  {
+    fclose(keyFile);
+    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to allocate memory for key file");
+    return NGX_ERROR;
+  }
+
+  keySizeRead = fread(conf->_keyfile.data, 1, keySize, keyFile);
+  fclose(keyFile);
+
+  if (keySizeRead == (size_t)keySize)
+  {
+    conf->_keyfile.len = keySize;
+    return NGX_OK;
   }
   else
   {
-    u_long keySize;
-    u_long keySizeRead;
-
-    // Read file length
-    fseek(keyFile, 0, SEEK_END);
-    keySize = ftell(keyFile);
-    fseek(keyFile, 0, SEEK_SET);
-
-    if (keySize == 0)
-    {
-      ngx_log_error(NGX_LOG_ERR, cf->log, 0, "invalid public key file size of 0");
-      return NGX_ERROR;
-    }
-    else
-    {
-      conf->_keyfile.data = ngx_palloc(cf->pool, keySize);
-      keySizeRead = fread(conf->_keyfile.data, 1, keySize, keyFile);
-      fclose(keyFile);
-
-      if (keySizeRead == keySize)
-      {
-        conf->_keyfile.len = (int)keySize;
-
-        return NGX_OK;
-      }
-      else
-      {
-        ngx_log_error(NGX_LOG_ERR, cf->log, 0, "public key size %i does not match expected size of %i", keySizeRead, keySize);
-        return NGX_ERROR;
-      }
-    }
+    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "public key size %uz does not match expected size of %ld", keySizeRead, keySize);
+    return NGX_ERROR;
   }
 }
 
@@ -940,4 +1266,334 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
   }
 
   return jwtPtr;
+}
+
+// Base64URL decode helper (for JWK "k" field)
+// Returns NGX_ERROR if input contains invalid characters
+static ngx_int_t base64url_decode(ngx_pool_t *pool, ngx_str_t *src, ngx_str_t *dst)
+{
+  // 77 marks invalid characters, valid values are 0-63
+  static const u_char basis64[] = {
+    77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+    77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+    77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 77, 62, 77, 77,
+    52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 77, 77, 77, 77, 77, 77,
+    77,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
+    15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 77, 77, 77, 77, 63,
+    77, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+    41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 77, 77, 77, 77, 77
+  };
+
+  size_t len = src->len;
+  u_char *s = src->data;
+
+  // Calculate output length
+  size_t decoded_len = (len * 3) / 4;
+
+  dst->data = ngx_palloc(pool, decoded_len);
+  if (!dst->data)
+  {
+    return NGX_ERROR;
+  }
+
+  u_char *d = dst->data;
+  size_t n = 0;
+
+  while (len > 3)
+  {
+    // Bounds check: reject bytes >= 128 (outside basis64 table)
+    if (s[0] >= 128 || s[1] >= 128 || s[2] >= 128 || s[3] >= 128)
+    {
+      return NGX_ERROR;
+    }
+    // Invalid character check (77 marks invalid in basis64)
+    if (basis64[s[0]] == 77 || basis64[s[1]] == 77 ||
+        basis64[s[2]] == 77 || basis64[s[3]] == 77)
+    {
+      return NGX_ERROR;
+    }
+    *d++ = (u_char)(basis64[s[0]] << 2 | basis64[s[1]] >> 4);
+    *d++ = (u_char)(basis64[s[1]] << 4 | basis64[s[2]] >> 2);
+    *d++ = (u_char)(basis64[s[2]] << 6 | basis64[s[3]]);
+    s += 4;
+    len -= 4;
+    n += 3;
+  }
+
+  if (len > 1)
+  {
+    if (s[0] >= 128 || s[1] >= 128 || basis64[s[0]] == 77 || basis64[s[1]] == 77)
+    {
+      return NGX_ERROR;
+    }
+    *d++ = (u_char)(basis64[s[0]] << 2 | basis64[s[1]] >> 4);
+    n++;
+  }
+  if (len > 2)
+  {
+    if (s[2] >= 128 || basis64[s[2]] == 77)
+    {
+      return NGX_ERROR;
+    }
+    *d++ = (u_char)(basis64[s[1]] << 4 | basis64[s[2]] >> 2);
+    n++;
+  }
+
+  dst->len = n;
+  return NGX_OK;
+}
+
+// Helper function to copy a JSON string to an ngx_str_t
+static ngx_str_t json_string_to_ngx_str(ngx_pool_t *pool, json_t *json_str)
+{
+  ngx_str_t result = ngx_null_string;
+
+  if (json_str && json_is_string(json_str))
+  {
+    const char *str = json_string_value(json_str);
+    size_t len = strlen(str);
+
+    result.data = ngx_palloc(pool, len);
+    if (result.data)
+    {
+      ngx_memcpy(result.data, str, len);
+      result.len = len;
+    }
+  }
+
+  return result;
+}
+
+// Parse a single JWK key from a JSON object
+static ngx_int_t parse_jwk_key(ngx_pool_t *pool, json_t *jwk, auth_jwt_key_t *key)
+{
+  json_t *kty = json_object_get(jwk, "kty");
+  json_t *kid = json_object_get(jwk, "kid");
+  json_t *alg = json_object_get(jwk, "alg");
+
+  if (!kty || !json_is_string(kty))
+  {
+    return NGX_ERROR;
+  }
+
+  // Initialize key structure
+  ngx_memzero(key, sizeof(auth_jwt_key_t));
+
+  key->kty = json_string_to_ngx_str(pool, kty);
+  key->kid = json_string_to_ngx_str(pool, kid);
+  key->alg = json_string_to_ngx_str(pool, alg);
+
+  const char *kty_str = json_string_value(kty);
+
+  if (ngx_strcmp(kty_str, "oct") == 0)
+  {
+    // Symmetric key (HMAC)
+    json_t *k = json_object_get(jwk, "k");
+    if (k && json_is_string(k))
+    {
+      key->k = json_string_to_ngx_str(pool, k);
+    }
+    else
+    {
+      return NGX_ERROR;
+    }
+  }
+  else if (ngx_strcmp(kty_str, "RSA") == 0)
+  {
+    // RSA key - store n and e for potential later use
+    json_t *n = json_object_get(jwk, "n");
+    json_t *e = json_object_get(jwk, "e");
+
+    if (n && json_is_string(n) && e && json_is_string(e))
+    {
+      key->n = json_string_to_ngx_str(pool, n);
+      key->e = json_string_to_ngx_str(pool, e);
+    }
+    else
+    {
+      return NGX_ERROR;
+    }
+  }
+  else if (ngx_strcmp(kty_str, "EC") == 0)
+  {
+    // EC key - we'll need the x, y, and crv parameters
+    // For now, store basic info
+    json_t *crv = json_object_get(jwk, "crv");
+    if (!crv)
+    {
+      return NGX_ERROR;
+    }
+  }
+
+  return NGX_OK;
+}
+
+// Load and parse a JWK/JWKS file
+static ngx_int_t load_jwk_file(ngx_conf_t *cf, auth_jwt_conf_t *conf)
+{
+  FILE *fp;
+  json_error_t error;
+  json_t *root;
+
+  // Create null-terminated path for fopen
+  u_char *path = ngx_pnalloc(cf->pool, conf->key_file.len + 1);
+  if (path == NULL)
+  {
+    return NGX_ERROR;
+  }
+  ngx_memcpy(path, conf->key_file.data, conf->key_file.len);
+  path[conf->key_file.len] = '\0';
+
+  fp = fopen((const char *)path, "r");
+  if (!fp)
+  {
+    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to open JWK file: %s", path);
+    return NGX_ERROR;
+  }
+
+  root = json_loadf(fp, 0, &error);
+  fclose(fp);
+
+  if (!root)
+  {
+    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to parse JWK file: %s at line %d", error.text, error.line);
+    return NGX_ERROR;
+  }
+
+  conf->jwks = ngx_palloc(cf->pool, sizeof(auth_jwt_jwks_t));
+  if (!conf->jwks)
+  {
+    json_decref(root);
+    return NGX_ERROR;
+  }
+
+  json_t *keys = json_object_get(root, "keys");
+
+  if (keys && json_is_array(keys))
+  {
+    // JWKS format with multiple keys
+    size_t nkeys = json_array_size(keys);
+
+    conf->jwks->keys = ngx_palloc(cf->pool, sizeof(auth_jwt_key_t) * nkeys);
+    conf->jwks->nkeys = 0;
+
+    if (!conf->jwks->keys)
+    {
+      json_decref(root);
+      return NGX_ERROR;
+    }
+
+    for (size_t i = 0; i < nkeys; i++)
+    {
+      json_t *jwk = json_array_get(keys, i);
+
+      if (parse_jwk_key(cf->pool, jwk, &conf->jwks->keys[conf->jwks->nkeys]) == NGX_OK)
+      {
+        conf->jwks->nkeys++;
+
+        ngx_log_error(NGX_LOG_INFO, cf->log, 0, "loaded JWK key: kid=%V, kty=%V",
+                      &conf->jwks->keys[conf->jwks->nkeys - 1].kid,
+                      &conf->jwks->keys[conf->jwks->nkeys - 1].kty);
+      }
+    }
+  }
+  else if (json_is_object(root))
+  {
+    // Single JWK format
+    conf->jwks->keys = ngx_palloc(cf->pool, sizeof(auth_jwt_key_t));
+    conf->jwks->nkeys = 0;
+
+    if (!conf->jwks->keys)
+    {
+      json_decref(root);
+      return NGX_ERROR;
+    }
+
+    if (parse_jwk_key(cf->pool, root, &conf->jwks->keys[0]) == NGX_OK)
+    {
+      conf->jwks->nkeys = 1;
+
+      ngx_log_error(NGX_LOG_INFO, cf->log, 0, "loaded JWK key: kid=%V, kty=%V",
+                    &conf->jwks->keys[0].kid, &conf->jwks->keys[0].kty);
+    }
+  }
+  else
+  {
+    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "invalid JWK file format");
+    json_decref(root);
+    return NGX_ERROR;
+  }
+
+  json_decref(root);
+
+  if (conf->jwks->nkeys == 0)
+  {
+    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "no valid keys found in JWK file");
+    return NGX_ERROR;
+  }
+
+  ngx_log_error(NGX_LOG_INFO, cf->log, 0, "loaded %d key(s) from JWK file", conf->jwks->nkeys);
+
+  return NGX_OK;
+}
+
+// Find a JWK key by kid (key ID), or return the first key if kid is NULL
+static auth_jwt_key_t *find_jwk_key(auth_jwt_conf_t *jwtcf, const char *kid)
+{
+  if (!jwtcf->jwks || jwtcf->jwks->nkeys == 0)
+  {
+    return NULL;
+  }
+
+  // If kid is provided, search for matching key
+  if (kid && strlen(kid) > 0)
+  {
+    for (ngx_uint_t i = 0; i < jwtcf->jwks->nkeys; i++)
+    {
+      if (jwtcf->jwks->keys[i].kid.len > 0 &&
+          jwtcf->jwks->keys[i].kid.len == strlen(kid) &&
+          ngx_strncmp(jwtcf->jwks->keys[i].kid.data, kid, strlen(kid)) == 0)
+      {
+        return &jwtcf->jwks->keys[i];
+      }
+    }
+  }
+
+  // Return first key if no kid specified or kid not found
+  return &jwtcf->jwks->keys[0];
+}
+
+// Custom handler for auth_jwt_key_file_missing_error directive
+// Accepts: error_code [message] [content_type]
+static char *set_key_file_missing_error(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+  auth_jwt_conf_t *jwtcf = conf;
+  ngx_str_t *values = cf->args->elts;
+  ngx_int_t n;
+
+  // First argument: error code (required)
+  // Allow 3xx redirects (301, 302, 303, 307, 308) and 4xx-5xx errors
+  n = ngx_atoi(values[1].data, values[1].len);
+  if (!((n >= 301 && n <= 303) || n == 307 || n == 308 || (n >= 400 && n <= 599)))
+  {
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+      "invalid error code \"%V\" in auth_jwt_key_file_missing_error (use 301-303, 307, 308, or 400-599)",
+      &values[1]);
+    return NGX_CONF_ERROR;
+  }
+  jwtcf->key_file_missing_error = n;
+
+  // Second argument: error message or redirect URL (optional)
+  if (cf->args->nelts >= 3)
+  {
+    jwtcf->key_file_missing_message = values[2];
+  }
+
+  // Third argument: content type (optional, only for non-redirect responses)
+  if (cf->args->nelts >= 4)
+  {
+    jwtcf->key_file_missing_content_type = values[3];
+  }
+
+  return NGX_CONF_OK;
 }
