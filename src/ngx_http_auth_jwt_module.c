@@ -12,8 +12,6 @@
 #include <ngx_http.h>
 #include <jwt.h>
 
-#include <jansson.h>
-
 #include "arrays.h"
 #include "ngx_http_auth_jwt_header_processing.h"
 #include "ngx_http_auth_jwt_binary_converters.h"
@@ -251,7 +249,7 @@ static char *merge_conf(ngx_conf_t *cf, void *parent, void *child)
   // If the usage of the keyfile is specified, check if the key_path is also configured
   if (conf->use_keyfile == 1)
   {
-    if (ngx_strcmp(conf->keyfile_path.data, "") != 0)
+    if (conf->keyfile_path.len > 0)
     {
       if (load_public_key(cf, conf) != NGX_OK)
       {
@@ -287,6 +285,11 @@ static char *merge_extract_var_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *
   {
     // add this claim's name to the config struct
     ngx_str_t *element = ngx_array_push(claims);
+
+    if (element == NULL)
+    {
+      return NGX_CONF_ERROR;
+    }
 
     *element = values[i];
 
@@ -358,6 +361,20 @@ static ngx_int_t get_jwt_var_claim(ngx_http_request_t *r, ngx_http_variable_valu
 
     return NGX_ERROR;
   }
+  else if (ctx->claim_values == NULL || ctx->claim_values->nelts == 0 ||
+           *claim_idx >= ctx->claim_values->nelts)
+  {
+    // No claims extracted
+    ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "no claims available for jwt var");
+
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 1;
+    v->len = 0;
+    v->data = NULL;
+
+    return NGX_OK;
+  }
   else
   {
     ngx_str_t claim_value = ((ngx_str_t *)ctx->claim_values->elts)[*claim_idx];
@@ -380,6 +397,11 @@ static char *merge_extract_claims(ngx_conf_t *cf, ngx_array_t *claims)
   for (ngx_uint_t i = 1; i < cf->args->nelts; ++i)
   {
     ngx_str_t *element = ngx_array_push(claims);
+
+    if (element == NULL)
+    {
+      return NGX_CONF_ERROR;
+    }
 
     *element = values[i];
   }
@@ -488,6 +510,7 @@ static auth_jwt_ctx_t *get_request_jwt_ctx(ngx_http_request_t *r)
 
       if (jwtPtr == NULL)
       {
+        // JWT is required - deny request
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to find a JWT");
         ctx->validation_status = NGX_ERROR;
 
@@ -504,6 +527,13 @@ static auth_jwt_ctx_t *get_request_jwt_ctx(ngx_http_request_t *r)
         {
           keyLength = jwtcf->key.len / 2;
           key = ngx_palloc(r->pool, keyLength);
+
+          if (key == NULL)
+          {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to allocate memory for key");
+            ctx->validation_status = NGX_ERROR;
+            return ctx;
+          }
 
           if (0 != hex_to_binary((char *)jwtcf->key.data, key, jwtcf->key.len))
           {
@@ -691,7 +721,18 @@ static ngx_int_t extract_var_claims(ngx_http_request_t *r, auth_jwt_conf_t *jwtc
     for (ngx_uint_t i = 0; i < claims->nelts; ++i)
     {
       const ngx_str_t claim = claimsPtr[i];
-      const char *claimValue = jwt_get_grant(jwt, (char *)claim.data);
+
+      // Create null-terminated claim name for jwt_get_grant
+      u_char *claim_name = ngx_pnalloc(r->pool, claim.len + 1);
+      if (claim_name == NULL)
+      {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to allocate memory for claim name");
+        return NGX_ERROR;
+      }
+      ngx_memcpy(claim_name, claim.data, claim.len);
+      claim_name[claim.len] = '\0';
+
+      const char *claimValue = jwt_get_grant(jwt, (char *)claim_name);
       ngx_str_t value = ngx_string("");
 
       if (claimValue != NULL && strlen(claimValue) > 0)
@@ -699,7 +740,14 @@ static ngx_int_t extract_var_claims(ngx_http_request_t *r, auth_jwt_conf_t *jwtc
         value = char_ptr_to_ngx_str_t(r->pool, claimValue);
       }
 
-      ((ngx_str_t *)ctx->claim_values->elts)[i] = value;
+      // Use ngx_array_push to properly track the number of elements
+      ngx_str_t *element = ngx_array_push(ctx->claim_values);
+      if (element == NULL)
+      {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to push claim value to array");
+        return NGX_ERROR;
+      }
+      *element = value;
       ngx_log_debug(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "set var %V to JWT claim value %s", &claim, value.data);
     }
 
@@ -716,7 +764,18 @@ static void extract_claims(ngx_http_request_t *r, jwt_t *jwt, ngx_array_t *claim
     for (ngx_uint_t i = 0; i < claims->nelts; ++i)
     {
       const ngx_str_t claim = claimsPtr[i];
-      const char *value = jwt_get_grant(jwt, (char *)claim.data);
+
+      // Create null-terminated claim name for jwt_get_grant
+      u_char *claim_name = ngx_pnalloc(r->pool, claim.len + 1);
+      if (claim_name == NULL)
+      {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to allocate memory for claim name");
+        return;
+      }
+      ngx_memcpy(claim_name, claim.data, claim.len);
+      claim_name[claim.len] = '\0';
+
+      const char *value = jwt_get_grant(jwt, (char *)claim_name);
 
       if (value != NULL && strlen(value) > 0)
       {
@@ -725,6 +784,11 @@ static void extract_claims(ngx_http_request_t *r, jwt_t *jwt, ngx_array_t *claim
         ngx_str_t claimValue = char_ptr_to_ngx_str_t(r->pool, value);
 
         claimHeader.data = ngx_palloc(r->pool, claimHeaderLen);
+        if (claimHeader.data == NULL)
+        {
+          ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "failed to allocate memory for claim header");
+          return;
+        }
         claimHeader.len = claimHeaderLen;
         ngx_snprintf(claimHeader.data, claimHeaderLen, "%s%V", JWT_HEADER_PREFIX, &claim);
 
@@ -752,7 +816,7 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
 
     if (r->headers_out.location == NULL)
     {
-      ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+      return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
     r->headers_out.location->hash = 1;
@@ -783,6 +847,10 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
       {
         // ideally we would like the URI with the querystring parameters
         uri.data = ngx_palloc(r->pool, uri_var->len);
+        if (uri.data == NULL)
+        {
+          return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
         uri.len = uri_var->len;
         ngx_memcpy(uri.data, uri_var->data, uri_var->len);
       }
@@ -802,9 +870,13 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
         if (is_non_default_port)
         {
           port_str = ngx_palloc(r->pool, NGX_INT_T_LEN + 2);
+          if (port_str == NULL)
+          {
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+          }
 
-          ngx_snprintf((u_char *)port_str, sizeof(port_str), ":%d", port_num);
-          port_str_len = strlen(port_str);
+          u_char *end = ngx_snprintf((u_char *)port_str, NGX_INT_T_LEN + 2, ":%ui", port_num);
+          port_str_len = end - (u_char *)port_str;
         }
       }
 
@@ -812,6 +884,10 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
       // escape the URI
       escaped_len = 2 * ngx_escape_uri(NULL, uri.data, uri.len, NGX_ESCAPE_ARGS) + uri.len;
       uri_escaped.data = ngx_palloc(r->pool, escaped_len);
+      if (uri_escaped.data == NULL)
+      {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+      }
       uri_escaped.len = escaped_len;
       ngx_escape_uri(uri_escaped.data, uri.data, uri.len, NGX_ESCAPE_ARGS);
 
@@ -819,6 +895,10 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
       r->headers_out.location->value.len = loginlen + 12 + strlen(scheme) + 3 + server.len + port_str_len + uri_escaped.len;
 
       return_url = ngx_palloc(r->pool, r->headers_out.location->value.len);
+      if (return_url == NULL)
+      {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+      }
 
       ngx_memcpy(return_url, jwtcf->loginurl.data, jwtcf->loginurl.len);
       return_url_idx = jwtcf->loginurl.len;
@@ -865,47 +945,59 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
 // Loads the public key into the location config struct
 static ngx_int_t load_public_key(ngx_conf_t *cf, auth_jwt_conf_t *conf)
 {
-  FILE *keyFile = fopen((const char *)conf->keyfile_path.data, "rb");
+  // Create null-terminated path for fopen
+  u_char *path = ngx_pnalloc(cf->pool, conf->keyfile_path.len + 1);
+  if (path == NULL)
+  {
+    return NGX_ERROR;
+  }
+  ngx_memcpy(path, conf->keyfile_path.data, conf->keyfile_path.len);
+  path[conf->keyfile_path.len] = '\0';
+
+  FILE *keyFile = fopen((const char *)path, "rb");
 
   // Check if file exists or is correctly opened
   if (keyFile == NULL)
   {
-    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to open public key file");
+    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to open public key file: %s", path);
     return NGX_ERROR;
+  }
+
+  long keySize;
+  size_t keySizeRead;
+
+  // Read file length
+  fseek(keyFile, 0, SEEK_END);
+  keySize = ftell(keyFile);
+  fseek(keyFile, 0, SEEK_SET);
+
+  if (keySize <= 0)
+  {
+    fclose(keyFile);
+    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "invalid public key file size of %ld", keySize);
+    return NGX_ERROR;
+  }
+
+  conf->_keyfile.data = ngx_palloc(cf->pool, keySize);
+  if (conf->_keyfile.data == NULL)
+  {
+    fclose(keyFile);
+    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "failed to allocate memory for key file");
+    return NGX_ERROR;
+  }
+
+  keySizeRead = fread(conf->_keyfile.data, 1, keySize, keyFile);
+  fclose(keyFile);
+
+  if (keySizeRead == (size_t)keySize)
+  {
+    conf->_keyfile.len = keySize;
+    return NGX_OK;
   }
   else
   {
-    u_long keySize;
-    u_long keySizeRead;
-
-    // Read file length
-    fseek(keyFile, 0, SEEK_END);
-    keySize = ftell(keyFile);
-    fseek(keyFile, 0, SEEK_SET);
-
-    if (keySize == 0)
-    {
-      ngx_log_error(NGX_LOG_ERR, cf->log, 0, "invalid public key file size of 0");
-      return NGX_ERROR;
-    }
-    else
-    {
-      conf->_keyfile.data = ngx_palloc(cf->pool, keySize);
-      keySizeRead = fread(conf->_keyfile.data, 1, keySize, keyFile);
-      fclose(keyFile);
-
-      if (keySizeRead == keySize)
-      {
-        conf->_keyfile.len = (int)keySize;
-
-        return NGX_OK;
-      }
-      else
-      {
-        ngx_log_error(NGX_LOG_ERR, cf->log, 0, "public key size %i does not match expected size of %i", keySizeRead, keySize);
-        return NGX_ERROR;
-      }
-    }
+    ngx_log_error(NGX_LOG_ERR, cf->log, 0, "public key size %uz does not match expected size of %ld", keySizeRead, keySize);
+    return NGX_ERROR;
   }
 }
 
