@@ -97,7 +97,7 @@ jobs:
     - name: Download NGINX
       run: | 
         mkdir nginx
-        curl -O http://nginx.org/download/nginx-${{matrix.nginx-version}}.tar.gz
+        curl -O https://nginx.org/download/nginx-${{matrix.nginx-version}}.tar.gz
         tar -xzf nginx-${{matrix.nginx-version}}.tar.gz --strip-components 1 -C nginx
 
     - name: Configure NGINX
