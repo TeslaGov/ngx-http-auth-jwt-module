@@ -28,6 +28,9 @@ This module requires several new `nginx.conf` directives, which can be specified
 | `auth_jwt_extract_response_claims`   | Set to a space-delimited list of claims to extract from the JWT and set as response headers. These will be accessible via e.g: `$sent_http_jwt_sub`        |
 | `auth_jwt_use_keyfile`               | Set to "on" to read the key from a file rather than from the `auth_jwt_key` directive.                                                                     |
 | `auth_jwt_keyfile_path`              | Set to the path from which the key should be read when `auth_jwt_use_keyfile` is enabled.                                                                  |
+| `auth_jwt_key_file`                  | Path to a JWK or JWKS (JSON Web Key Set) file containing the key(s) for JWT validation.                                                                    |
+| `auth_jwt_key_file_missing_skip`     | Set to "on" to skip authentication if the key file is missing. Default is "off".                                                                           |
+| `auth_jwt_key_file_missing_error`    | HTTP status code when key file is missing. Supports redirects (301-303, 307, 308) and errors (400-599). Format: `code ["message/url"] ["content-type"]`. Default: 401. |
 
 
 ## Algorithms
@@ -64,6 +67,102 @@ When using an `RS*` algorithm with a public key file, do as follows:
 auth_jwt_use_keyfile on;
 auth_jwt_keyfile_path "/path/to/pub_key.pem";
 ```
+
+### Using JWK/JWKS Files (Similar to NGINX Plus)
+
+You can also use JWK (JSON Web Key) or JWKS (JSON Web Key Set) files for key management, similar to how NGINX Plus handles JWT configuration. This is especially useful when working with identity providers that publish their keys in JWK format.
+
+```nginx
+auth_jwt_key_file "/path/to/keys.jwk";
+```
+
+Example JWK file for symmetric (HMAC) keys:
+
+```json
+{
+  "keys": [
+    {
+      "kty": "oct",
+      "kid": "my-key-id",
+      "k": "AyM32w-8w_X7Kx9y9dBZLnKqDuDpGFYAZqNg5VfLCyk",
+      "alg": "HS256"
+    }
+  ]
+}
+```
+
+Single JWK format is also supported:
+
+```json
+{
+  "kty": "oct",
+  "kid": "my-key-id",
+  "k": "AyM32w-8w_X7Kx9y9dBZLnKqDuDpGFYAZqNg5VfLCyk",
+  "alg": "HS256"
+}
+```
+
+**Supported key types:**
+- `oct` (symmetric keys for HS256, HS384, HS512) - Fully supported
+- `RSA` and `EC` keys - Currently require PEM format via `auth_jwt_keyfile_path`
+
+**Note:** When `auth_jwt_key_file` is specified, it takes precedence over `auth_jwt_key` and other key configuration options.
+
+### Handling Missing Key Files
+
+When using `auth_jwt_key_file`, you can control what happens if the key file is missing or cannot be loaded. This is useful for scenarios where the key file might be dynamically provisioned or updated.
+
+#### Skipping Authentication
+
+To skip authentication entirely when the key file is missing:
+
+```nginx
+auth_jwt_key_file "/path/to/keys.jwk";
+auth_jwt_key_file_missing_skip on;
+```
+
+When the key file is missing with `auth_jwt_key_file_missing_skip on`, requests will be allowed through without JWT validation.
+
+#### Custom Error Responses
+
+To return a specific HTTP error code when the key file is missing:
+
+```nginx
+auth_jwt_key_file "/path/to/keys.jwk";
+auth_jwt_key_file_missing_error 503;
+```
+
+You can also provide a custom error message:
+
+```nginx
+auth_jwt_key_file "/path/to/keys.jwk";
+auth_jwt_key_file_missing_error 503 "Service temporarily unavailable";
+```
+
+And optionally specify the content type for the error response:
+
+```nginx
+auth_jwt_key_file "/path/to/keys.jwk";
+auth_jwt_key_file_missing_error 503 '{"error":"key_unavailable"}' "application/json";
+```
+
+#### Redirect Responses
+
+To redirect to a login page when the key file is missing, use a 3xx status code (301, 302, 303, 307, 308):
+
+```nginx
+auth_jwt_key_file "/path/to/keys.jwk";
+auth_jwt_key_file_missing_error 302;
+```
+
+When using a redirect without a URL, the module will use `auth_jwt_loginurl` as the redirect destination. You can also specify a custom redirect URL:
+
+```nginx
+auth_jwt_key_file "/path/to/keys.jwk";
+auth_jwt_key_file_missing_error 302 "https://login.example.com/auth";
+```
+
+**Default behavior:** If neither `auth_jwt_key_file_missing_skip` nor `auth_jwt_key_file_missing_error` is specified, the module returns HTTP 401 Unauthorized when the key file is missing.
 
 A typical use case would be to specify the key and login URL at the `http` level, and then only turn JWT authentication on for the locations which you want to secure (or vice-versa). Unauthorized requests will result in a `302 Moved Temporarily` response with the `Location` header set to the URL specified in the `auth_jwt_loginurl` directive, and a querystring parameter `return_url` whose value is the current / attempted URL.
 
