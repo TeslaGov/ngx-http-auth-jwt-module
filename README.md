@@ -129,6 +129,27 @@ auth_jwt_extract_request_claims firstName;
 auth_jwt_extract_request_claims lastName;
 ```
 
+## Pre-built Packages (Ubuntu / Debian)
+
+Pre-built packages for this module are freely available from the GetPageSpeed repository:
+
+```bash
+# Install the repository keyring
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://extras.getpagespeed.com/deb-archive-keyring.gpg \
+  | sudo tee /etc/apt/keyrings/getpagespeed.gpg >/dev/null
+
+# Add the repository (Ubuntu example - replace 'ubuntu' and 'jammy' for your distro)
+echo "deb [signed-by=/etc/apt/keyrings/getpagespeed.gpg] https://extras.getpagespeed.com/ubuntu jammy main" \
+  | sudo tee /etc/apt/sources.list.d/getpagespeed-extras.list
+
+# Install nginx and the module
+sudo apt-get update
+sudo apt-get install nginx nginx-module-teslagov-jwt
+```
+
+The module is automatically enabled after installation. Supported distributions include Debian 12/13 and Ubuntu 20.04/22.04/24.04 (both amd64 and arm64). See [the complete setup instructions](https://apt-nginx-extras.getpagespeed.com/apt-setup/).
+
 ## Versioning
 
 This module has historically not been versioned, however, we are now starting to version the module in order to add clarity. We will add releases here in GitHub with additional details. In the future we may also publish pre-built modules for a selection of NGINX versions.
@@ -199,7 +220,7 @@ Once you save your changes to `.vscode/c_cpp_properties.json`, you should see th
   ```shell
   # Install a newer bash version
   brew install bash
-  
+
   # Update your shell or ensure the scripts use the new bash
   export PATH="/opt/homebrew/bin:$PATH"  # or /usr/local/bin for Intel Macs
   ```
