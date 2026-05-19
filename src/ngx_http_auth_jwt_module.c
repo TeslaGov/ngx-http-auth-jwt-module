@@ -915,25 +915,18 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
   }
   else if (jwt_location.len > strlen(COOKIE_PREFIX) && ngx_strncmp(jwt_location.data, COOKIE_PREFIX, strlen(COOKIE_PREFIX)) == 0)
   {
-    bool has_cookie = false;
     ngx_str_t jwtCookieVal;
 
     jwt_location.data += strlen(COOKIE_PREFIX);
     jwt_location.len -= strlen(COOKIE_PREFIX);
 
-#ifndef NGX_LINKED_LIST_COOKIES
-    if (ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &jwt_location, &jwtCookieVal) != NGX_DECLINED)
-    {
-      has_cookie = true;
-    }
-#else
+#if nginx_version >= 1029006
+    if (ngx_http_parse_cookie_lines(r, r->headers_in.cookie, &jwt_location, &jwtCookieVal) != NULL)
+#elif nginx_version >= 1023000
     if (ngx_http_parse_multi_header_lines(r, r->headers_in.cookie, &jwt_location, &jwtCookieVal) != NULL)
-    {
-      has_cookie = true;
-    }
+#else
+    if (ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &jwt_location, &jwtCookieVal) != NGX_DECLINED)
 #endif
-
-    if (has_cookie == true)
     {
       jwtPtr = ngx_str_t_to_char_ptr(r->pool, jwtCookieVal);
     }

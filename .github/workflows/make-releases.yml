@@ -106,10 +106,6 @@ jobs:
         MIN=$(echo ${{matrix.nginx-version}} | cut -f2 -d.)
         REV=$(echo ${{matrix.nginx-version}} | cut -f3 -d.)
         
-        if [ "${MAJ}" -gt 1 ] || [ "${MAJ}" -eq 1 -a "${MIN}" -ge 23 ]; then
-          BUILD_FLAGS="${BUILD_FLAGS} --with-cc-opt='-DNGX_LINKED_LIST_COOKIES=1'"
-        fi
-        
         ./configure --with-compat --without-http_rewrite_module --add-dynamic-module=../ngx-http-auth-jwt-module ${BUILD_FLAGS}
 
     - name: Make Modules
