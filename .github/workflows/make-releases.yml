@@ -33,8 +33,8 @@ jobs:
           - 1.22.1 # legacy
           - 1.24.0 # legacy
           - 1.26.3 # legacy
-          - 1.28.1 # stable
-          - 1.29.4 # mainline
+          - 1.30.2 # stable
+          - 1.31.1 # mainline
 
         libjwt-version:
           - 1.12.0
