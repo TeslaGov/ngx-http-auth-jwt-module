@@ -23,7 +23,10 @@ SSL_IMAGE_MAP[$SSL_VERSION_1_1_1w]="bullseye-slim:openssl-${SSL_VERSION_1_1_1w}"
 SSL_IMAGE_MAP[$SSL_VERSION_3_0_15]="bookworm-slim:openssl-${SSL_VERSION_3_0_15}"
 SSL_IMAGE_MAP[$SSL_VERSION_3_2_1]="bookworm-slim:openssl-${SSL_VERSION_3_2_1}"
 
-# supported NGINX versions -- for binary distribution
+# supported NGINX versions -- for binary distribution -- see: https://nginx.org/en/download.html
+#   - 3 most recent legacy versions
+#   - current stable version
+#   - current mainline version
 NGINX_VERSIONS=(
   1.22.1 # legacy
   1.24.0 # legacy
