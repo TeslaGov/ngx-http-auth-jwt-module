@@ -927,7 +927,7 @@ static char *get_jwt(ngx_http_request_t *r, ngx_str_t jwt_location)
       has_cookie = true;
     }
 #else
-    if (ngx_http_parse_multi_header_lines(r, r->headers_in.cookie, &jwt_location, &jwtCookieVal) != NULL)
+    if (ngx_http_parse_cookie_lines(r, r->headers_in.cookie, &jwt_location, &jwtCookieVal) != NULL)
     {
       has_cookie = true;
     }
