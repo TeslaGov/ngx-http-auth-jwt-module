@@ -1,0 +1,35 @@
+name: Test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test:
+    name: "NGINX: ${{ matrix.nginx-version }}; libjwt: ${{ matrix.libjwt-version }}"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        nginx-version:
+          - 1.24.0 # legacy
+          - 1.26.3 # legacy
+          - 1.28.3 # legacy
+          - 1.30.2 # stable
+          - 1.31.1 # mainline
+
+        libjwt-version:
+          - 1.10.2   # Debian
+          - 1.17.2   # Ubuntu
+          - 1.12.1   # UBI8
+          - 1.18.4   # Latest libjwt release
+    steps:
+
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Test
+      run: |
+        export NGINX_VERSION=${{ matrix.nginx-version }}
+        export LIBJWT_VERSION=${{ matrix.libjwt-version }}
+        ./scripts test

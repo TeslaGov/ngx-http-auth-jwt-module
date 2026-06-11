@@ -24,7 +24,7 @@ jobs:
 
           echo "tag=${tag}" >> $GITHUB_OUTPUT
 
-  build:
+  build-and-test:
     name: "NGINX: ${{ matrix.nginx-version }}; libjwt: ${{ matrix.libjwt-version }}"
     needs: meta
     runs-on: ubuntu-latest
@@ -39,15 +39,22 @@ jobs:
 
         libjwt-version:
           - 1.10.2   # Debian
-          - 1.17.2.0 # Ubuntu
+          - 1.17.2   # Ubuntu
           - 1.12.1   # UBI8
-          - 1.18.3   # Latest libjwt release
+          - 1.18.4   # Latest libjwt release
     steps:
 
     - name: Checkout Code
       uses: actions/checkout@v4
       with:
         path: ngx-http-auth-jwt-module
+
+    - name: Test
+      run: |
+        export NGINX_VERSION=${{ matrix.nginx-version }}
+        export LIBJWT_VERSION=${{ matrix.libjwt-version }}
+        cd ngx-http-auth-jwt-module
+        ./scripts test
 
     - name: Get Metadata
       id: meta
@@ -134,7 +141,7 @@ jobs:
     name: Create/Update Release
     needs:
       - meta
-      - build
+      - build-and-test
     runs-on: ubuntu-latest
     permissions:
       contents: write
