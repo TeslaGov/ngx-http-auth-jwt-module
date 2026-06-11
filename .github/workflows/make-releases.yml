@@ -37,10 +37,11 @@ jobs:
           - 1.31.1 # mainline
 
         libjwt-version:
-          - 1.12.0
-          - 1.14.0
-          - 1.15.3
-    runs-on: ubuntu-latest
+          - 1.10.2   # Debian
+          - 1.17.2.0 # Ubuntu
+          - 1.12.1   # UBI8
+          - 1.18.3   # Latest libjwt release
+          runs-on: ubuntu-latest
     steps:
 
     - name: Checkout Code

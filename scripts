@@ -35,26 +35,31 @@ NGINX_VERSIONS=(
   1.31.1 # mainline
 )
 
-# The following versions of libjwt are compatible:
+# At the time of writing this, the following versions of libjwt are compatible:
 #   * v1.0 - v1.12.0
 #   * v1.12.1 - v1.14.0
 #   * v1.15.0+
-# At the time of writing this:
-#   * Debian and Ubuntu's repos have v1.10.2
-#   * EPEL has v1.12.1
-# This compiles against each version prior to a breaking change and the latest release
-LIBJWT_VERSION_DEBIAN=1.12.0
-LIBJWT_VERSION_EPEL=1.14.0
-LIBJWT_VERSION_LATEST=1.15.3
+# And the following versions are available in common repos:
+#   * Debian Bullseye (11):    1.10.2
+#   * Debian Bookworm (12):    1.10.2
+#   * Ubuntu Questing (25.10): 1.17.2
+#   * Ubuntu Resolute (26.04): 1.17.2
+#   * UBI8:                    1.12.1
+# This compiles against each version prior to a breaking change and the latest release.
+LIBJWT_VERSION_DEBIAN=1.10.2
+LIBJWT_VERSION_UBUNTU=1.17.2.0
+LIBJWT_VERSION_UBI8=1.12.1
+LIBJWT_VERSION_LATEST=1.18.3
 LIBJWT_VERSIONS=(
   ${LIBJWT_VERSION_DEBIAN}
-  ${LIBJWT_VERSION_EPEL}
+  ${LIBJWT_VERSION_UBUNTU}
+  ${LIBJWT_VERSION_UBI8}
   ${LIBJWT_VERSION_LATEST}
 )
 
 SSL_VERSION=${SSL_VERSION:-$SSL_VERSION_3_0_15}
 NGINX_VERSION=${NGINX_VERSION:-${NGINX_VERSIONS[-1]}}
-LIBJWT_VERSION=${LIBJWT_VERSION:-${LIBJWT_VERSION_DEBIAN}}
+LIBJWT_VERSION=${LIBJWT_VERSION:-${LIBJWT_VERSION_UBI8}}
 IMAGE_NAME=${IMAGE_NAME:-nginx-auth-jwt}
 FULL_IMAGE_NAME=${ORG_NAME:-teslagov}/${IMAGE_NAME}
 TEST_CONTAINER_NAME_PREFIX="${IMAGE_NAME}-test"
