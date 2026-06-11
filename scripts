@@ -57,6 +57,7 @@ LIBJWT_VERSIONS=(
   ${LIBJWT_VERSION_LATEST}
 )
 
+MODULE_VERSION=2.4.0
 SSL_VERSION=${SSL_VERSION:-$SSL_VERSION_3_0_15}
 NGINX_VERSION=${NGINX_VERSION:-${NGINX_VERSIONS[-1]}}
 LIBJWT_VERSION=${LIBJWT_VERSION:-${LIBJWT_VERSION_UBI8}}
@@ -132,6 +133,7 @@ stop() {
 cp_bin() {
   local destDir=bin
   local stopContainer=0;
+  local moduleFileName="ngx_http_auth_jwt_module_${MODULE_VERSION}.so"
 
   if [ "$(docker container inspect -f '{{.State.Running}}' ${IMAGE_NAME} | true)" != "true" ]; then
     start
@@ -146,6 +148,8 @@ cp_bin() {
     usr/local/lib/libjansson.so.* \
     usr/local/lib/libjwt.*" | tar -xf - -C ${destDir} &>/dev/null
 
+  mv "${destDir}/usr/lib/nginx/modules/ngx_http_auth_jwt_module.so" "${destDir}/usr/lib/nginx/modules/${moduleFileName}"
+
   if [ $stopContainer ]; then
     printf "${MAGENTA}Stopping NGINX container (${IMAGE_NAME})...${NC}\n"
     stop
@@ -153,9 +157,9 @@ cp_bin() {
 }
 
 make_release() {
-  local moduleVersion=$(git describe --tags --abbrev=0)
+  local moduleFileName="ngx_http_auth_jwt_module_${MODULE_VERSION}.so"
 
-  printf "${MAGENTA}Making release for version ${moduleVersion} for NGINX ${NGINX_VERSION}...${NC}\n"
+  printf "${MAGENTA}Making release for version ${MODULE_VERSION} for NGINX ${NGINX_VERSION}...${NC}\n"
 
   rebuild_module
   rebuild_test
@@ -163,9 +167,9 @@ make_release() {
   cp_bin
 
   mkdir -p release
-  tar -czvf release/ngx-http-auth-jwt-module-${moduleVersion}_libjwt-${LIBJWT_VERSION}_nginx-${NGINX_VERSION}.tgz \
+  tar -czvf release/ngx-http-auth-jwt-module-${MODULE_VERSION}_libjwt-${LIBJWT_VERSION}_nginx-${NGINX_VERSION}.tgz \
     README.md \
-    -C bin/usr/lib/nginx/modules ngx_http_auth_jwt_module.so > /dev/null
+    -C bin/usr/lib/nginx/modules ${moduleFileName} > /dev/null
 }
 
 # Create releases for all NGINX versions defined in `NGINX_VERSIONS`.

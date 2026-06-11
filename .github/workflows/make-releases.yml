@@ -27,6 +27,7 @@ jobs:
   build:
     name: "NGINX: ${{ matrix.nginx-version }}; libjwt: ${{ matrix.libjwt-version }}"
     needs: meta
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         nginx-version:
@@ -41,7 +42,6 @@ jobs:
           - 1.17.2.0 # Ubuntu
           - 1.12.1   # UBI8
           - 1.18.3   # Latest libjwt release
-          runs-on: ubuntu-latest
     steps:
 
     - name: Checkout Code
@@ -119,8 +119,9 @@ jobs:
 
     - name: Create Release Archive
       run: |
-        cp ./nginx/objs/ngx_http_auth_jwt_module.so ./
-        tar czf ${{steps.meta.outputs.filename}} ngx_http_auth_jwt_module.so
+        module_file="ngx_http_auth_jwt_module_${{needs.meta.outputs.tag}}.so"
+        cp ./nginx/objs/ngx_http_auth_jwt_module.so ./${module_file}
+        tar czf ${{steps.meta.outputs.filename}} ${module_file}
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
