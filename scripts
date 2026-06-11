@@ -1,6 +1,4 @@
-#!/usr/bin/env bash
-
-set -eu
+#!/bin/bash -eux
 
 MAGENTA='\u001b[35m'
 BLUE='\033[0;34m'
@@ -57,7 +55,7 @@ LIBJWT_VERSIONS=(
   ${LIBJWT_VERSION_LATEST}
 )
 
-MODULE_VERSION=2.4.0
+MODULE_VERSION=$(git describe --tags --abbrev=0 2>/dev/null)
 SSL_VERSION=${SSL_VERSION:-$SSL_VERSION_3_0_15}
 NGINX_VERSION=${NGINX_VERSION:-${NGINX_VERSIONS[-1]}}
 LIBJWT_VERSION=${LIBJWT_VERSION:-${LIBJWT_VERSION_UBI8}}
