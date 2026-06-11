@@ -102,6 +102,7 @@ build_module() {
     -f nginx.dockerfile \
     -t ${FULL_IMAGE_NAME}:${NGINX_VERSION} \
     --build-arg BASE_IMAGE=${baseImage} \
+    --build-arg MODULE_VERSION=${MODULE_VERSION} \
     --build-arg NGINX_VERSION=${NGINX_VERSION} \
     --build-arg LIBJWT_VERSION=${LIBJWT_VERSION} \
     .
@@ -264,6 +265,32 @@ get_port() {
       fi
     fi
   done
+}
+
+extract_version() {
+  if [ $# -eq 0 ]; then
+    printf "Usage: ./scripts extract_version <path/to/ngx_http_auth_jwt_module.so>\n"
+    printf "Output: Prints the module version string embedded in the .so file\n"
+    exit 1
+  fi
+
+  if [ ! -f "$1" ]; then
+    printf "${RED}Error: File not found: $1${NC}\n" >&2
+    exit 1
+  fi
+
+  # Extract the version string using strings and grep
+  # The version format is: ngx_http_auth_jwt_module_version=<VERSION>
+  version=$(strings "$1" 2>/dev/null | grep '^ngx_http_auth_jwt_module_version=' | cut -d= -f2)
+
+  if [ -z "$version" ]; then
+    printf "${RED}No version metadata found in: $1${NC}\n" >&2
+    printf "unknown\n"
+    exit 1
+  else
+    printf "${GREEN}${version}${NC}\n"
+    exit 0
+  fi
 }
 
 if [ $# -eq 0 ]; then

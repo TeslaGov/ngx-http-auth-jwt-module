@@ -22,6 +22,13 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+/* Module version metadata - embedded at compile time */
+#ifndef NGX_HTTP_AUTH_JWT_MODULE_VERSION
+#define NGX_HTTP_AUTH_JWT_MODULE_VERSION "unknown"
+#endif
+
+static const char ngx_http_auth_jwt_module_version[] __attribute__((used)) = "ngx_http_auth_jwt_module_version=" NGX_HTTP_AUTH_JWT_MODULE_VERSION;
+
 typedef struct
 {
   ngx_str_t loginurl;

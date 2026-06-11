@@ -1,11 +1,10 @@
-ARG BASE_IMAGE=${:?required}
-ARG NGINX_VERSION
-ARG LIBJWT_VERSION
+ARG BASE_IMAGE=${:?required}`
 
 FROM ${BASE_IMAGE} AS ngx_http_auth_jwt_builder
 LABEL stage=ngx_http_auth_jwt_builder
 ENV PATH="${PATH}:/etc/nginx"
 ENV LD_LIBRARY_PATH=/usr/local/lib
+ARG MODULE_VERSION
 ARG NGINX_VERSION
 ARG LIBJWT_VERSION
 
@@ -51,18 +50,18 @@ RUN <<`
 WORKDIR /root/build/nginx
 RUN <<`
 	set -e
-	BUILD_FLAGS=''
+	EXTRA_CC_OPTS="-DNGX_HTTP_AUTH_JWT_MODULE_VERSION=\\\"${MODULE_VERSION}\\\""
 	MAJ=$(echo ${NGINX_VERSION} | cut -f1 -d.)
 	MIN=$(echo ${NGINX_VERSION} | cut -f2 -d.)
 	REV=$(echo ${NGINX_VERSION} | cut -f3 -d.)
 
 	# NGINX 1.23.0+ changes cookies to use a linked list, and renames `cookies` to `cookie`
 	if [ "${MAJ}" -gt 1 ] || [ "${MAJ}" -eq 1 -a "${MIN}" -ge 23 ]; then
-		BUILD_FLAGS="${BUILD_FLAGS} --with-cc-opt='-DNGX_LINKED_LIST_COOKIES=1'"
+		EXTRA_CC_OPTS="${EXTRA_CC_OPTS} -DNGX_LINKED_LIST_COOKIES=1"
 	fi
 
 	./configure \
-    --prefix=/etc/nginx \
+		--prefix=/etc/nginx \
 		--sbin-path=/usr/sbin/nginx \
 		--modules-path=/usr/lib64/nginx/modules \
 		--conf-path=/etc/nginx/nginx.conf \
@@ -102,11 +101,9 @@ RUN <<`
 		--with-stream_realip_module \
 		--with-stream_ssl_module \
 		--with-stream_ssl_preread_module \
-		--with-cc-opt='-g -O2 -ffile-prefix-map=/data/builder/debuild/nginx-1.25.4/debian/debuild-base/nginx-1.25.4=. -fstack-protector-strong -Wformat -Werror=format-security -Wp,-D_FORTIFY_SOURCE=2 -fPIC' \
+		--with-cc-opt="-g -O2 -ffile-prefix-map=/data/builder/debuild/nginx-1.25.4/debian/debuild-base/nginx-${NGINX_VERSION}=. -fstack-protector-strong -Wformat -Werror=format-security -Wp,-D_FORTIFY_SOURCE=2 -fPIC ${EXTRA_CC_OPTS}" \
 		--with-ld-opt='-Wl,-z,relro -Wl,-z,now -Wl,--as-needed -pie' \
-		--add-dynamic-module=../ngx-http-auth-jwt-module \
-		${BUILD_FLAGS}
-		# --with-openssl=/usr/local \
+		--add-dynamic-module=../ngx-http-auth-jwt-module
 `
 
 RUN make modules
