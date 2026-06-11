@@ -79,7 +79,7 @@ jobs:
 
   release:
     name: Create/Update Release
-    needs: build
+    needs: [meta, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
