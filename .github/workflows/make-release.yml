@@ -63,17 +63,18 @@ jobs:
         set -eu
         artifact="ngx-http-auth-jwt-module-${{needs.meta.outputs.tag}}_libjwt-${{matrix.libjwt-version}}_nginx-${{matrix.nginx-version}}"
         
-        echo "artifact=${artifact}.tgz" >> $GITHUB_OUTPUT
+        echo "artifact=${artifact}" >> $GITHUB_OUTPUT
+        echo "filename=${artifact}.tgz" >> $GITHUB_OUTPUT
 
     - name: Create Release Archive
-      run: tar czf ${{steps.meta.outputs.artifact}} -C bin/usr/lib/nginx/modules ngx_http_auth_jwt_module_${{needs.meta.outputs.tag}}.so
+      run: tar czf ${{steps.meta.outputs.filename}} -C bin/usr/lib/nginx/modules ngx_http_auth_jwt_module_${{needs.meta.outputs.tag}}.so
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v7
       with:
         if-no-files-found: error
         name: ${{steps.meta.outputs.artifact}}
-        path: ${{steps.meta.outputs.artifact}}
+        path: ${{steps.meta.outputs.filename}}
 
   release:
     name: Create/Update Release
