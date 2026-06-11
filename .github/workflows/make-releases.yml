@@ -12,7 +12,7 @@ jobs:
     steps:
 
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -27,6 +27,7 @@ jobs:
   build:
     name: "NGINX: ${{ matrix.nginx-version }}; libjwt: ${{ matrix.libjwt-version }}"
     needs: meta
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         nginx-version:
@@ -37,16 +38,23 @@ jobs:
           - 1.31.1 # mainline
 
         libjwt-version:
-          - 1.12.0
-          - 1.14.0
-          - 1.15.3
-    runs-on: ubuntu-latest
+          - 1.10.2   # Debian
+          - 1.17.2   # Ubuntu
+          - 1.12.1   # UBI8
+          - 1.18.4   # Latest libjwt release.
+    env:
+      NGINX_VERSION: ${{ matrix.nginx-version }}
+      LIBJWT_VERSION: ${{ matrix.libjwt-version }}
     steps:
 
     - name: Checkout Code
-      uses: actions/checkout@v4
-      with:
-        path: ngx-http-auth-jwt-module
+      uses: actions/checkout@v6
+
+    - name: Build Module
+      run: ./scripts build_module
+
+    - name: Copy Binaries
+      run: ./scripts cp_bin
 
     - name: Get Metadata
       id: meta
@@ -57,69 +65,8 @@ jobs:
         echo "artifact=${artifact}" >> $GITHUB_OUTPUT
         echo "filename=${artifact}.tgz" >> $GITHUB_OUTPUT
 
-
-    # TODO cache the build result so we don't have to do this every time?
-    - name: Download jansson
-      uses: actions/checkout@v4
-      with:
-        repository: 'akheron/jansson'
-        ref: 'v2.14'
-        path: 'jansson'
-
-    - name: Build jansson
-      working-directory: ./jansson
-      run: |
-        set -e
-        cmake . -DJANSSON_BUILD_SHARED_LIBS=1 -DJANSSON_BUILD_DOCS=OFF
-        make
-        make check
-        sudo make install
-
-    # TODO cache the build result so we don't have to do this every time?
-    - name: Download libjwt
-      uses: actions/checkout@v4
-      with:
-        repository: 'benmcollins/libjwt'
-        ref: 'v${{matrix.libjwt-version}}'
-        path: 'libjwt'
-
-    - name: Build libjwt
-      working-directory: ./libjwt
-      run: |
-        set -e
-        autoreconf -i
-        ./configure
-        make all
-        sudo make install
-
-    - name: Download NGINX
-      run: | 
-        mkdir nginx
-        curl -O https://nginx.org/download/nginx-${{matrix.nginx-version}}.tar.gz
-        tar -xzf nginx-${{matrix.nginx-version}}.tar.gz --strip-components 1 -C nginx
-
-    - name: Configure NGINX
-      working-directory: ./nginx
-      run: |
-        BUILD_FLAGS=''
-        MAJ=$(echo ${{matrix.nginx-version}} | cut -f1 -d.)
-        MIN=$(echo ${{matrix.nginx-version}} | cut -f2 -d.)
-        REV=$(echo ${{matrix.nginx-version}} | cut -f3 -d.)
-        
-        if [ "${MAJ}" -gt 1 ] || [ "${MAJ}" -eq 1 -a "${MIN}" -ge 23 ]; then
-          BUILD_FLAGS="${BUILD_FLAGS} --with-cc-opt='-DNGX_LINKED_LIST_COOKIES=1'"
-        fi
-        
-        ./configure --with-compat --without-http_rewrite_module --add-dynamic-module=../ngx-http-auth-jwt-module ${BUILD_FLAGS}
-
-    - name: Make Modules
-      working-directory: ./nginx
-      run: make modules
-
     - name: Create Release Archive
-      run: |
-        cp ./nginx/objs/ngx_http_auth_jwt_module.so ./
-        tar czf ${{steps.meta.outputs.filename}} ngx_http_auth_jwt_module.so
+      run: tar czf ${{steps.meta.outputs.filename}} -C bin .
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
@@ -130,9 +77,7 @@ jobs:
 
   release:
     name: Create/Update Release
-    needs:
-      - meta
-      - build
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write

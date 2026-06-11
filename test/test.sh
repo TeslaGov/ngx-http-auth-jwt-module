@@ -171,6 +171,16 @@ main() {
            -c 200 \
            -x ' --cookie "jwt=${JWT_HS256_MISSING_SUB}"'
 
+  run_test -n 'with JWT cookie before another cookie, returns 200' \
+           -p '/secure/cookie/default' \
+           -c 200 \
+           -x ' --cookie "jwt=${JWT_HS256_MISSING_SUB}; x=y"'
+
+  run_test -n 'with JWT cookie after another cookie, returns 200' \
+           -p '/secure/cookie/default' \
+           -c 200 \
+           -x ' --cookie "x=y; jwt=${JWT_HS256_MISSING_SUB}"'
+
   run_test -n 'when auth enabled with default algorithm and valid JWT cookie with no sub when sub validated, returns 302' \
            -p '/secure/cookie/default/validate-sub' \
            -c 302 \

@@ -35,26 +35,32 @@ NGINX_VERSIONS=(
   1.31.1 # mainline
 )
 
-# The following versions of libjwt are compatible:
+# At the time of writing this, the following versions of libjwt are compatible:
 #   * v1.0 - v1.12.0
 #   * v1.12.1 - v1.14.0
 #   * v1.15.0+
-# At the time of writing this:
-#   * Debian and Ubuntu's repos have v1.10.2
-#   * EPEL has v1.12.1
-# This compiles against each version prior to a breaking change and the latest release
-LIBJWT_VERSION_DEBIAN=1.12.0
-LIBJWT_VERSION_EPEL=1.14.0
-LIBJWT_VERSION_LATEST=1.15.3
+# And the following versions are available in common repos:
+#   * Debian Bullseye (11):    1.10.2
+#   * Debian Bookworm (12):    1.10.2
+#   * Ubuntu Questing (25.10): 1.17.2
+#   * Ubuntu Resolute (26.04): 1.17.2
+#   * UBI8:                    1.12.1
+# This compiles against each version prior to a breaking change and the latest release.
+LIBJWT_VERSION_DEBIAN=1.10.2
+LIBJWT_VERSION_UBUNTU=1.17.2
+LIBJWT_VERSION_UBI8=1.12.1
+LIBJWT_VERSION_LATEST=1.18.4
 LIBJWT_VERSIONS=(
   ${LIBJWT_VERSION_DEBIAN}
-  ${LIBJWT_VERSION_EPEL}
+  ${LIBJWT_VERSION_UBUNTU}
+  ${LIBJWT_VERSION_UBI8}
   ${LIBJWT_VERSION_LATEST}
 )
 
+MODULE_VERSION=2.4.0
 SSL_VERSION=${SSL_VERSION:-$SSL_VERSION_3_0_15}
 NGINX_VERSION=${NGINX_VERSION:-${NGINX_VERSIONS[-1]}}
-LIBJWT_VERSION=${LIBJWT_VERSION:-${LIBJWT_VERSION_DEBIAN}}
+LIBJWT_VERSION=${LIBJWT_VERSION:-${LIBJWT_VERSION_UBI8}}
 IMAGE_NAME=${IMAGE_NAME:-nginx-auth-jwt}
 FULL_IMAGE_NAME=${ORG_NAME:-teslagov}/${IMAGE_NAME}
 TEST_CONTAINER_NAME_PREFIX="${IMAGE_NAME}-test"
@@ -96,6 +102,7 @@ build_module() {
     -f nginx.dockerfile \
     -t ${FULL_IMAGE_NAME}:${NGINX_VERSION} \
     --build-arg BASE_IMAGE=${baseImage} \
+    --build-arg MODULE_VERSION=${MODULE_VERSION} \
     --build-arg NGINX_VERSION=${NGINX_VERSION} \
     --build-arg LIBJWT_VERSION=${LIBJWT_VERSION} \
     .
@@ -127,6 +134,7 @@ stop() {
 cp_bin() {
   local destDir=bin
   local stopContainer=0;
+  local moduleFileName="ngx_http_auth_jwt_module_${MODULE_VERSION}.so"
 
   if [ "$(docker container inspect -f '{{.State.Running}}' ${IMAGE_NAME} | true)" != "true" ]; then
     start
@@ -141,6 +149,8 @@ cp_bin() {
     usr/local/lib/libjansson.so.* \
     usr/local/lib/libjwt.*" | tar -xf - -C ${destDir} &>/dev/null
 
+  mv "${destDir}/usr/lib/nginx/modules/ngx_http_auth_jwt_module.so" "${destDir}/usr/lib/nginx/modules/${moduleFileName}"
+
   if [ $stopContainer ]; then
     printf "${MAGENTA}Stopping NGINX container (${IMAGE_NAME})...${NC}\n"
     stop
@@ -148,9 +158,9 @@ cp_bin() {
 }
 
 make_release() {
-  local moduleVersion=$(git describe --tags --abbrev=0)
+  local moduleFileName="ngx_http_auth_jwt_module_${MODULE_VERSION}.so"
 
-  printf "${MAGENTA}Making release for version ${moduleVersion} for NGINX ${NGINX_VERSION}...${NC}\n"
+  printf "${MAGENTA}Making release for version ${MODULE_VERSION} for NGINX ${NGINX_VERSION}...${NC}\n"
 
   rebuild_module
   rebuild_test
@@ -158,9 +168,9 @@ make_release() {
   cp_bin
 
   mkdir -p release
-  tar -czvf release/ngx-http-auth-jwt-module-${moduleVersion}_libjwt-${LIBJWT_VERSION}_nginx-${NGINX_VERSION}.tgz \
+  tar -czvf release/ngx-http-auth-jwt-module-${MODULE_VERSION}_libjwt-${LIBJWT_VERSION}_nginx-${NGINX_VERSION}.tgz \
     README.md \
-    -C bin/usr/lib/nginx/modules ngx_http_auth_jwt_module.so > /dev/null
+    -C bin/usr/lib/nginx/modules ${moduleFileName} > /dev/null
 }
 
 # Create releases for all NGINX versions defined in `NGINX_VERSIONS`.
@@ -255,6 +265,32 @@ get_port() {
       fi
     fi
   done
+}
+
+extract_version() {
+  if [ $# -eq 0 ]; then
+    printf "Usage: ./scripts extract_version <path/to/ngx_http_auth_jwt_module.so>\n"
+    printf "Output: Prints the module version string embedded in the .so file\n"
+    exit 1
+  fi
+
+  if [ ! -f "$1" ]; then
+    printf "${RED}Error: File not found: $1${NC}\n" >&2
+    exit 1
+  fi
+
+  # Extract the version string using strings and grep
+  # The version format is: ngx_http_auth_jwt_module_version=<VERSION>
+  version=$(strings "$1" 2>/dev/null | grep '^ngx_http_auth_jwt_module_version=' | cut -d= -f2)
+
+  if [ -z "$version" ]; then
+    printf "${RED}No version metadata found in: $1${NC}\n" >&2
+    printf "unknown\n"
+    exit 1
+  else
+    printf "${GREEN}${version}${NC}\n"
+    exit 0
+  fi
 }
 
 if [ $# -eq 0 ]; then
