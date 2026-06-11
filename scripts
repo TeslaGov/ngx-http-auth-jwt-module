@@ -22,12 +22,10 @@ SSL_IMAGE_MAP[$SSL_VERSION_3_0_15]="bookworm-slim:openssl-${SSL_VERSION_3_0_15}"
 SSL_IMAGE_MAP[$SSL_VERSION_3_2_1]="bookworm-slim:openssl-${SSL_VERSION_3_2_1}"
 
 # supported NGINX versions -- for binary distribution -- see: https://nginx.org/en/download.html
-#   - 3 most recent legacy versions
+#   - most recent legacy version
 #   - current stable version
 #   - current mainline version
 NGINX_VERSIONS=(
-  1.24.0 # legacy
-  1.26.3 # legacy
   1.28.3 # legacy
   1.30.2 # stable
   1.31.1 # mainline

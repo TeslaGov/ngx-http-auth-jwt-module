@@ -31,17 +31,15 @@ jobs:
     strategy:
       matrix:
         nginx-version:
-          # - 1.24.0 # legacy
-          # - 1.26.3 # legacy
-          # - 1.28.3 # legacy
-          # - 1.30.2 # stable
+          - 1.28.3 # legacy
+          - 1.30.2 # stable
           - 1.31.1 # mainline
 
         libjwt-version:
-          # - 1.10.2   # Debian
-          # - 1.17.2   # Ubuntu
+          - 1.10.2   # Debian
+          - 1.17.2   # Ubuntu
           - 1.12.1   # UBI8
-          # - 1.18.4   # Latest libjwt release.
+          - 1.18.4   # Latest libjwt release.
     env:
       MODULE_VERSION: ${{needs.meta.outputs.tag}}
       NGINX_VERSION: ${{ matrix.nginx-version }}
