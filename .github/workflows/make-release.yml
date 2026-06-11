@@ -31,18 +31,19 @@ jobs:
     strategy:
       matrix:
         nginx-version:
-          - 1.24.0 # legacy
-          - 1.26.3 # legacy
-          - 1.28.3 # legacy
-          - 1.30.2 # stable
+          # - 1.24.0 # legacy
+          # - 1.26.3 # legacy
+          # - 1.28.3 # legacy
+          # - 1.30.2 # stable
           - 1.31.1 # mainline
 
         libjwt-version:
-          - 1.10.2   # Debian
-          - 1.17.2   # Ubuntu
+          # - 1.10.2   # Debian
+          # - 1.17.2   # Ubuntu
           - 1.12.1   # UBI8
-          - 1.18.4   # Latest libjwt release.
+          # - 1.18.4   # Latest libjwt release.
     env:
+      MODULE_VERSION: ${{needs.meta.outputs.tag}}
       NGINX_VERSION: ${{ matrix.nginx-version }}
       LIBJWT_VERSION: ${{ matrix.libjwt-version }}
     steps:
@@ -68,7 +69,7 @@ jobs:
         echo "filename=${artifact}.tgz" >> $GITHUB_OUTPUT
 
     - name: Create Release Archive
-      run: tar czf ${{steps.meta.outputs.filename}} -C bin .
+      run: tar czf ${{steps.meta.outputs.filename}} -C bin/usr/lib/nginx/modules ngx_http_auth_jwt_module_${{needs.meta.outputs.tag}}.so
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v7
@@ -94,19 +95,6 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: artifacts
-
-      - name: Flatten Artifacts
-        run: |
-          set -eu
-          
-          cd artifacts
-
-          for f in $(find . -type f); do
-            echo "Staging: ${f}"
-            mv "${f}" .
-          done
-
-          find . -type d -mindepth 1 -exec rm -rf "{}" +
 
       - name: Create/Update Release
         uses: ncipollo/release-action@v1
