@@ -663,7 +663,7 @@ static ngx_int_t extract_var_claims(ngx_http_request_t *r, auth_jwt_conf_t *jwtc
   {
     const ngx_str_t *claimsPtr = claims->elts;
 
-    for (uint i = 0; i < claims->nelts; ++i)
+    for (ngx_uint_t i = 0; i < claims->nelts; ++i)
     {
       const ngx_str_t claim = claimsPtr[i];
       const char *claimValue = jwt_get_grant(jwt, (char *)claim.data);
@@ -688,7 +688,7 @@ static void extract_claims(ngx_http_request_t *r, jwt_t *jwt, ngx_array_t *claim
   {
     const ngx_str_t *claimsPtr = claims->elts;
 
-    for (uint i = 0; i < claims->nelts; ++i)
+    for (ngx_uint_t i = 0; i < claims->nelts; ++i)
     {
       const ngx_str_t claim = claimsPtr[i];
       const char *value = jwt_get_grant(jwt, (char *)claim.data);
@@ -742,7 +742,7 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
       ngx_int_t port_variable_hash = ngx_hash_key(port_variable_name.data, port_variable_name.len);
       ngx_http_variable_value_t *port_var = ngx_http_get_variable(r, &port_variable_name, port_variable_hash);
       char *port_str = "";
-      uint port_str_len = 0;
+      ngx_uint_t port_str_len = 0;
       const ngx_str_t server = r->headers_in.server;
       ngx_str_t uri_variable_name = ngx_string("request_uri");
       ngx_int_t uri_variable_hash = ngx_hash_key(uri_variable_name.data, uri_variable_name.len);
