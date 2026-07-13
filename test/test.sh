@@ -371,7 +371,7 @@ main() {
   run_test -n 'redirect based on claim' \
            -p '/profile/me' \
            -c 301 \
-           -r '< Location: http://nginx:8000/profile/some-long-uuid' \
+           -r "< Location: http://nginx:${PORT}/profile/some-long-uuid" \
            -x '--header "Authorization: Bearer ${JWT_HS256_VALID}"'
 
   run_test -n 'returns 302 if auth enabled and no JWT provided' \
