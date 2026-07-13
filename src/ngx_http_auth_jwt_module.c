@@ -741,7 +741,7 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
       ngx_str_t port_variable_name = ngx_string("server_port");
       ngx_int_t port_variable_hash = ngx_hash_key(port_variable_name.data, port_variable_name.len);
       ngx_http_variable_value_t *port_var = ngx_http_get_variable(r, &port_variable_name, port_variable_hash);
-      char *port_str = "";
+      u_char *port_str = "";
       ngx_uint_t port_str_len = 0;
       const ngx_str_t server = r->headers_in.server;
       ngx_str_t uri_variable_name = ngx_string("request_uri");
@@ -777,9 +777,8 @@ static ngx_int_t redirect(ngx_http_request_t *r, auth_jwt_conf_t *jwtcf)
         if (is_non_default_port)
         {
           port_str = ngx_palloc(r->pool, NGX_INT_T_LEN + 2);
-
-          ngx_snprintf((u_char *)port_str, sizeof(port_str), ":%d", port_num);
-          port_str_len = strlen(port_str);
+          u_char *port_end = ngx_snprintf(port_str, NGX_INT_T_LEN + 2, ":%ui", port_num);
+          port_str_len = (ngx_uint_t)(port_end - port_str);
         }
       }
 
