@@ -614,13 +614,38 @@ static ngx_int_t handle_request(ngx_http_request_t *r)
 static int validate_alg(auth_jwt_conf_t *jwtcf, jwt_t *jwt)
 {
   const jwt_alg_t alg = jwt_get_alg(jwt);
+  jwt_alg_t expected_alg;
+  char algorithm[16] = {0};
 
-  if (alg != JWT_ALG_HS256 && alg != JWT_ALG_HS384 && alg != JWT_ALG_HS512 && alg != JWT_ALG_RS256 && alg != JWT_ALG_RS384 && alg != JWT_ALG_RS512 && alg != JWT_ALG_ES256 && alg != JWT_ALG_ES384 && alg != JWT_ALG_ES512)
+  if (alg == JWT_ALG_NONE)
   {
     return 1;
   }
+  else if (jwtcf->algorithm.len >= sizeof(algorithm))
+  {
+    return 1;
+  }
+  else
+  {
+    if (jwtcf->algorithm.len == 0)
+    {
+      expected_alg = JWT_ALG_HS256;
+    }
+    else
+    {
+      ngx_memcpy(algorithm, jwtcf->algorithm.data, jwtcf->algorithm.len);
+      expected_alg = jwt_str_alg(algorithm);
+    }
 
-  return 0;
+    if (alg != expected_alg)
+    {
+      return 1;
+    }
+    else
+    {
+      return 0;
+    }
+  }
 }
 
 static int validate_exp(auth_jwt_conf_t *jwtcf, jwt_t *jwt)
