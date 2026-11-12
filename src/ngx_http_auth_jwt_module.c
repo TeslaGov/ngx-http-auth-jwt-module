@@ -558,7 +558,7 @@ static auth_jwt_ctx_t *get_request_jwt_ctx(ngx_http_request_t *r)
         }
         else
         {
-          ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "unsupported algorithm %s", algorithm);
+          ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "unsupported algorithm %V", &algorithm);
           ctx->validation_status = NGX_ERROR;
 
           return ctx;
