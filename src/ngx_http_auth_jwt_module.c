@@ -275,6 +275,12 @@ static char *merge_extract_var_claims(ngx_conf_t *cf, ngx_command_t *cmd, void *
   if (claims == NULL)
   {
     claims = ngx_array_create(cf->pool, 1, sizeof(ngx_str_t));
+
+    if (claims == NULL)
+    {
+      return NGX_CONF_ERROR;
+    }
+
     conf->extract_var_claims = claims;
   }
 
@@ -417,6 +423,12 @@ static char *merge_extract_request_claims(ngx_conf_t *cf, ngx_command_t *cmd, vo
   if (claims == NULL)
   {
     claims = ngx_array_create(cf->pool, 1, sizeof(ngx_str_t));
+
+    if (claims == NULL)
+    {
+      return NGX_CONF_ERROR;
+    }
+
     conf->extract_request_claims = claims;
   }
 
@@ -431,6 +443,12 @@ static char *merge_extract_response_claims(ngx_conf_t *cf, ngx_command_t *cmd, v
   if (claims == NULL)
   {
     claims = ngx_array_create(cf->pool, 1, sizeof(ngx_str_t));
+
+    if (claims == NULL)
+    {
+      return NGX_CONF_ERROR;
+    }
+
     conf->extract_response_claims = claims;
   }
 

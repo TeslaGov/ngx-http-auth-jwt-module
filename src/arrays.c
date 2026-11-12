@@ -8,6 +8,11 @@ void merge_array(ngx_pool_t *pool, ngx_array_t **dest, const ngx_array_t *src, s
   {
     *dest = ngx_array_create(pool, src->nelts, size);
 
+    if (*dest == NULL)
+    {
+      return;
+    }
+
     ngx_memcpy((*dest)->elts, src->elts, src->nelts * size);
     (*dest)->nelts = src->nelts;
   }
