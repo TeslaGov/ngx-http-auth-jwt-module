@@ -27,8 +27,8 @@ SSL_IMAGE_MAP[$SSL_VERSION_3_2_1]="bookworm-slim:openssl-${SSL_VERSION_3_2_1}"
 #   - current mainline version
 NGINX_VERSIONS=(
   1.28.3 # legacy
-  1.30.2 # stable
-  1.31.1 # mainline
+  1.30.7 # stable
+  1.31.9 # mainline
 )
 
 # At the time of writing this, the following versions of libjwt are compatible:
