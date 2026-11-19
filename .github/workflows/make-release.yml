@@ -32,8 +32,8 @@ jobs:
       matrix:
         nginx-version:
           - 1.28.3 # legacy
-          - 1.30.2 # stable
-          - 1.31.1 # mainline
+          - 1.30.7 # stable
+          - 1.31.9 # mainline
 
         libjwt-version:
           - 1.10.2   # Debian
